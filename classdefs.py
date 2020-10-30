@@ -26,6 +26,9 @@ class SeparatorItem(QTreeWidgetItem):
         pass
 
 class DoubleClickHandler():
+    """
+    parent class to handle double click activity (not intended to be instantiated alone)
+    """
     def __init__(self):
 
         self.dblClicks = 0

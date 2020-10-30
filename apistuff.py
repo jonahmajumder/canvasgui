@@ -1,7 +1,6 @@
 from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 from bs4 import BeautifulSoup
-from appcontrol import convert
 
 from pathlib import Path
 import os
@@ -12,7 +11,7 @@ from datetime import datetime
 import pytz
 
 from guihelper import *
-from secrets import BASEURL, TOKEN
+from appcontrol import convert
 
 DOWNLOADS = os.path.expanduser('~/Downloads')
 
@@ -25,11 +24,12 @@ def get_root_folder(course):
     return first_levels[0]
 
 def get_courses_separated(canvas):
-    nickname_ids = [c.course_id for c in canvas.get_course_nicknames()]
-    all_courses = list(canvas.get_courses())
-    nicknamed = [c for c in all_courses if c.id in nickname_ids]
-    non_nicknamed = [c for c in all_courses if c.id not in nickname_ids]
-    return nicknamed, non_nicknamed
+    u = canvas.get_current_user()
+    favorites = u.get_favorite_courses()
+    favorite_ids = [c.id for c in favorites]
+    all_courses = list(u.get_courses())
+    others = [c for c in all_courses if c.id not in favorite_ids]
+    return favorites, others
 
 def safe_get_folders(parent):
     try:

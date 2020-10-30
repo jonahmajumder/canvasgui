@@ -10,11 +10,7 @@ from canvasapi.exceptions import Unauthorized
 
 from apistuff import *
 from classdefs import *
-
-ASMODULES = False
-
-ONLYNICKNAMED = True
-
+from secrets import BASEURL, TOKEN
 
 canvas = Canvas(BASEURL, TOKEN)
 
@@ -31,7 +27,7 @@ tree.header().setSectionResizeMode(QHeaderView.Stretch)
 
 moduleSlider = SliderHLayout('Filesystem', 'Modules', startVal=True)
 
-nicknameSlider = SliderHLayout('All Courses', 'Nicknamed Courses', startVal=False)
+favoriteSlider = SliderHLayout('All Courses', 'Favorites', startVal=True)
 
 expandButton = QPushButton('Expand All')
 
@@ -47,7 +43,7 @@ mainLayout = QVBoxLayout()
 
 controlLayout = QHBoxLayout()
 controlLayout.addLayout(moduleSlider)
-controlLayout.addLayout(nicknameSlider)
+controlLayout.addLayout(favoriteSlider)
 controlLayout.addLayout(expandLayout)
 controlLayout.setStretch(0, 1)
 controlLayout.setStretch(1, 1)
@@ -60,26 +56,26 @@ central = QWidget()
 central.setLayout(mainLayout)
 main.setCentralWidget(central)
 
-def add_courses(onlyNicknamed, asModules):
-    nicknamed_courses, non_nicknamed_courses = get_courses_separated(canvas)
+def add_courses(onlyFavorites, asModules):
+    favorites, others = get_courses_separated(canvas)
 
-    for course in nicknamed_courses:
+    for course in favorites:
         CourseItem(tree, object=course, modules=asModules)
 
-    if not onlyNicknamed:
+    if not onlyFavorites:
         SeparatorItem(tree)
-        for course in non_nicknamed_courses:
+        for course in others:
             CourseItem(tree, object=course, modules=asModules)
     
 def moduleSliderChanged(asModules):
-    nicknamedOnly = nicknameSlider.value()
+    onlyFavorites = favoriteSlider.value()
     tree.clear()
-    add_courses(nicknamedOnly, asModules)
+    add_courses(onlyFavorites, asModules)
 
-def nicknameSliderChanged(nicknamedOnly):
+def favoriteSliderChanged(onlyFavorites):
     asModules = moduleSlider.value()
     tree.clear()
-    add_courses(nicknamedOnly, asModules)
+    add_courses(onlyFavorites, asModules)
 
 def expand_children(item):
     for i in range(item.childCount()):
@@ -92,13 +88,13 @@ def expand_all():
     expand_children(tree.invisibleRootItem())
     print('Load time: {:.2f}'.format(time() - start_time))
 
-add_courses(nicknameSlider.value(), moduleSlider.value())
+add_courses(favoriteSlider.value(), moduleSlider.value())
 
 tree.itemDoubleClicked.connect(lambda item: item.dblClickFcn())
 
 expandButton.clicked.connect(expand_all)
 moduleSlider.valueChanged.connect(moduleSliderChanged)
-nicknameSlider.valueChanged.connect(nicknameSliderChanged)
+favoriteSlider.valueChanged.connect(favoriteSliderChanged)
 
 app.topLevelWidgets()[0].setGeometry(
     QStyle.alignedRect(
