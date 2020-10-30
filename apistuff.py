@@ -9,9 +9,11 @@ from urllib import parse
 from dateutil.parser import isoparse
 from datetime import datetime
 import pytz
+import json
 
 from guihelper import *
 from appcontrol import convert
+from secrets import BASEURL, TOKEN
 
 DOWNLOADS = os.path.expanduser('~/Downloads')
 
@@ -53,14 +55,24 @@ def get_item_data(url):
 
 def get_module_page_links(item):
     body = get_module_page_html(item)
-    soup = BeautifulSoup(body, 'html.parser')
-    links = soup.find_all('a')
     linkdict = {}
-    linkdict['files'] = [l for l in links if 'instructure_file_link' in l.attrs.get('class', [])]
-    linkdict['internals'] = [l for l in links if 'data-api-returntype' in l.attrs and 'file_preview_link' not in l.attrs.get('class', []) and l not in linkdict['files']]
+    if body is not None:
+        soup = BeautifulSoup(body, 'html.parser')
+        links = soup.find_all('a')
+        classes = [l.attrs.get('class', []) for l in links]
+        rettypes = [l.attrs.get('data-api-returntype', '') for l in links]
+        for (l, r) in zip(links, rettypes):
+            if len(r) > 0:
+                if not json.loads(l.attrs.get('aria-hidden', 'false')):
+                    if r not in linkdict:
+                        linkdict[r] = []
+                    linkdict[r].append(l)
 
-    leftover_links = [l for l in links if (l not in linkdict['files']) and (l not in linkdict['internals'])]
-    linkdict['leftovers'] = leftover_links
+    # linkdict['files'] = [l for l in links if 'instructure_file_link' in l.attrs.get('class', [])]
+    # linkdict['internals'] = [l for l in links if 'data-api-returntype' in l.attrs and 'file_preview_link' not in l.attrs.get('class', []) and l not in linkdict['files']]
+
+    # leftover_links = [l for l in links if (l not in linkdict['files']) and (l not in linkdict['internals'])]
+    # linkdict['leftovers'] = leftover_links
 
     # for k,v in linkdict.items():
     #     print(k)
@@ -72,7 +84,11 @@ def get_module_page_links(item):
 def get_module_page_html(item):
     r = get_item_data(item.url)
     js = r.json()
-    return js['body']
+    if 'body' in js:
+        return js['body']
+    else:
+        print(js)
+        return None
 
 def download_file(item, loc=DOWNLOADS):
     r = get_item_data(item.url)
@@ -91,13 +107,23 @@ def download_module_linked_file(attrs, loc=DOWNLOADS):
     if confirm_dialog('Download {}?'.format(attrs['title']), title='Confirm Download'):
         save_binary_response(r, attrs['title'], DOWNLOADS)
 
-def get_module_linked_page_html(attrs):
+def get_module_linked_page(attrs):
     r = get_item_data(attrs['data-api-endpoint'])
     js = r.json()
-    if 'body' in js:
-        return js['body']
+    return js
+
+def parse_title_from_link(attrs):
+    if 'title' in attrs:
+        return attrs['title']
     else:
-        return None
+        js = get_module_linked_page(attrs)
+        if 'title' in js:
+            return js['title']
+        elif 'display_name' in js:
+            return js['display_name']
+        else:
+            print(json.dumps(js))
+            raise Exception('Could not find a title!')
 
 
 def save_binary_response(resp, filename, loc):

@@ -41,13 +41,13 @@ class DoubleClickHandler():
         else:
             self.dblClickActions.append(lambda: None) # make last is not expand
 
-    def dblClickFcn(self):
+    def dblClickFcn(self, **kwargs):
         nclicks = self.dblClicks
         self.dblClicks += 1
         if nclicks < len(self.dblClickActions) - 1:
-            self.dblClickActions[nclicks]() # execute function
+            self.dblClickActions[nclicks](**kwargs) # execute function
         else:
-            self.dblClickActions[-1]() # execute last function repeatedly
+            self.dblClickActions[-1](**kwargs) # execute last function repeatedly
         
         # print('Double clicks: {}'.format(nclicks))
 
@@ -101,7 +101,7 @@ class CourseItem(CanvasItem):
 
         self.setIcon(0, QIcon('book.png'))
 
-    def expand(self):
+    def expand(self, **kwargs):
         if self.modules:
             self.get_modules()
         else:
@@ -135,7 +135,7 @@ class ModuleItem(CanvasItem):
 
         self.setIcon(0, QIcon('module.png'))
 
-    def expand(self):
+    def expand(self, **kwargs):
         items = list(self.obj.get_module_items())
         for mi in items:
             if mi.type == 'SubHeader':
@@ -158,7 +158,7 @@ class ModuleFileItem(CanvasItem):
 
         self.setIcon(0, QIcon('file.png'))
 
-    def open(self):
+    def open(self, **kwargs):
         download_module_file(self.obj)
 
 class ModulePageItem(CanvasItem):
@@ -170,17 +170,29 @@ class ModulePageItem(CanvasItem):
 
         self.setIcon(0, QIcon('html.png'))
 
-    def expand(self):
-        links = get_module_page_links(self.obj)
-        # print(links)
-        for a in links['files']:
-            LinkedFileItem(self, element=a)
-        for a in links['internals']:
-            LinkedPageItem(self, element=a)
-        if len(links['files'] + links['internals']) == 0:
-            self.dblClickFcn() # no action for expand, send another click
+    def expand(self, **kwargs):
+        advance = kwargs.get('advance', True)
 
-    def open(self):
+        links = get_module_page_links(self.obj)
+        # print(self.text(0))
+        # print('Link types: ' + str(list(links.keys())))
+        # print('')
+        files = links.get('File', [])
+        pages = links.get('Page', [])
+        quizzes = links.get('Quiz', [])
+        assignments = links.get('Assignment', [])
+
+        for a in files:
+            LinkedFileItem(self, element=a)
+        for a in pages:
+            LinkedPageItem(self, element=a)
+        for a in quizzes + assignments:
+            LinkedQuizItem(self, element=a)
+        if not sum(links.values(), []):
+            if advance:
+                self.dblClickFcn() # no action for expand, send another click
+
+    def open(self, **kwargs):
         body = get_module_page_html(self.obj)
         disp_html(body)
 
@@ -195,7 +207,7 @@ class ModuleDummyItem(CanvasItem):
 
         self.setIcon(0, QIcon('assigment.png'))
 
-    def open(self):
+    def open(self, **kwargs):
         if hasattr(self.obj, 'url'):
             r = get_item_data(self.obj.url)
             js = r.json()
@@ -213,7 +225,7 @@ class FolderItem(CanvasItem):
 
         self.setIcon(0, QIcon('folder.png'))
 
-    def expand(self):
+    def expand(self, **kwargs):
         for file in safe_get_files(self.obj):
             FileItem(self, object=file)
 
@@ -229,7 +241,7 @@ class FileItem(CanvasItem):
 
         self.setIcon(0, QIcon('file.png'))
 
-    def open(self):
+    def open(self, **kwargs):
         download_file(self.obj)
 
 class LinkedFileItem(QTreeWidgetItem, DoubleClickHandler):
@@ -244,9 +256,10 @@ class LinkedFileItem(QTreeWidgetItem, DoubleClickHandler):
 
         self.setIcon(0, QIcon('file.png'))
 
-        self.setText(0, self.elem.attrs['title'])
+        title = parse_title_from_link(self.elem.attrs)
+        self.setText(0, title)
         
-    def open(self):
+    def open(self, **kwargs):
         download_module_linked_file(self.elem.attrs)
 
 class LinkedPageItem(QTreeWidgetItem, DoubleClickHandler):
@@ -259,21 +272,35 @@ class LinkedPageItem(QTreeWidgetItem, DoubleClickHandler):
         super(LinkedPageItem, self).__init__(*args, **kwargs)
         super(DoubleClickHandler, self).__init__()
 
-        self.type = self.elem.attrs['data-api-returntype']
+        self.setIcon(0, QIcon('html.png'))
+        
+        title = parse_title_from_link(self.elem.attrs)
+        self.setText(0, title)
 
-        if self.type == 'Page':
-            self.setIcon(0, QIcon('html.png'))
-        elif self.type == 'Quiz':
-            self.setIcon(0, QIcon('assigment.png'))
-        else:
-            print('No icon added, elem type was "{}".'.format(self.type))
+    def open(self, **kwargs):
+        js = get_module_linked_page(self.elem.attrs)
+        if 'body' in js:
+            disp_html(js['body'])
 
-        self.setText(0, self.elem.attrs['title'])
+class LinkedQuizItem(QTreeWidgetItem, DoubleClickHandler):
+    """
+    class for tree elements corresponding to (internal) pages linked on "module pages"
+    (no canvasapi object, but instead bs4 element from html)
+    """
+    def __init__(self, *args, **kwargs):
+        self.elem = kwargs.pop('element', None)
+        super(LinkedQuizItem, self).__init__(*args, **kwargs)
+        super(DoubleClickHandler, self).__init__()
 
-    def open(self):
-        body = get_module_linked_page_html(self.elem.attrs)
-        if body is not None:
-            disp_html(body)
+        self.setIcon(0, QIcon('assigment.png'))
+        
+        title = parse_title_from_link(self.elem.attrs)
+        self.setText(0, title)
+
+    def open(self, **kwargs):
+        js = get_module_linked_page(self.elem.attrs)
+        webbrowser.open(js['html_url'])
+            
 
 class SliderHLayout(QHBoxLayout):
     """

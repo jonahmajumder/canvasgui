@@ -80,7 +80,8 @@ def favoriteSliderChanged(onlyFavorites):
 def expand_children(item):
     for i in range(item.childCount()):
         ch = item.child(i)
-        ch.callExpand()
+        if hasattr(ch, 'expand'):
+            ch.dblClickFcn(advance=False)
         expand_children(ch)
 
 def expand_all():
