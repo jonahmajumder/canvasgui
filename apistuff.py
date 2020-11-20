@@ -91,8 +91,8 @@ def get_module_page_html(item):
         return None
 
 def download_file(item, loc=DOWNLOADS):
-    r = get_item_data(item.url)
     if confirm_dialog('Download {}?'.format(item.filename), title='Confirm Download'):
+        r = get_item_data(item.url)
         save_binary_response(r, item.filename, DOWNLOADS)
 
 def download_module_file(item, loc=DOWNLOADS):

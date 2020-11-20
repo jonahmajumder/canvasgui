@@ -96,14 +96,18 @@ class CourseItem(CanvasItem):
     class for tree elements with corresponding canvasapi "course" objects
     """
     def __init__(self, *args, **kwargs):
-        self.modules = kwargs.pop('modules', False)
+        self.content = kwargs.pop('content', 'files')
         super(CourseItem, self).__init__(*args, **kwargs)
 
         self.setIcon(0, QIcon('book.png'))
 
     def expand(self, **kwargs):
-        if self.modules:
+        if self.content == 'files':
+            self.get_filesystem()
+        elif self.content == 'modules':
             self.get_modules()
+        elif self.content == 'tools':
+            self.get_tools()
         else:
             self.get_filesystem()
 
@@ -118,13 +122,32 @@ class CourseItem(CanvasItem):
         folders = safe_get_folders(root)
 
         if len(files + folders) > 0:
-            for file in safe_get_files(root):
+            for file in files:
                 FileItem(self, object=file)
             
-            for folder in safe_get_folders(root):
+            for folder in folders:
                 FolderItem(self, object=folder)
         else:
             self.setDisabled(True)
+
+    def get_tools(self):
+        for t in self.obj.get_external_tools():
+            ExternalToolItem(self, object=t)
+
+class ExternalToolItem(CanvasItem):
+
+    def __init__(self, *args, **kwargs):
+        super(ExternalToolItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(0, QIcon('link.png'))
+
+    def expand(self, **kwargs):
+        if 'url' in self.obj.custom_fields:
+            webbrowser.open(self.obj.custom_fields['url'])
+        else:
+            print('No external url found!')
+            # print('')
+            # print(repr(self.obj))
 
 class ModuleItem(CanvasItem):
     """
