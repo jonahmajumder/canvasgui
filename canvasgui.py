@@ -12,7 +12,7 @@ from apistuff import *
 from classdefs import *
 from secrets import BASEURL, TOKEN
 
-CONTENT_TYPES = ['modules', 'files', 'tools']
+CONTENT_TYPES = ['modules', 'files', 'assignments', 'tools']
 
 canvas = Canvas(BASEURL, TOKEN)
 
@@ -30,6 +30,7 @@ tree.header().setSectionResizeMode(QHeaderView.Stretch)
 contentTypeComboBox = QComboBox()
 contentTypeComboBox.addItem('Modules')
 contentTypeComboBox.addItem('Filesystem')
+contentTypeComboBox.addItem('Assignments')
 contentTypeComboBox.addItem('External Tools')
 
 contentTypeLayout = QHBoxLayout()
@@ -107,6 +108,9 @@ def expand_all():
 add_courses(favoriteSlider.value(), contentTypeComboBox.currentIndex())
 
 tree.itemDoubleClicked.connect(lambda item: item.dblClickFcn())
+
+tree.setSortingEnabled(True)
+tree.sortByColumn(1, Qt.DescendingOrder) # most recent at top
 
 expandButton.clicked.connect(expand_all)
 contentTypeComboBox.currentIndexChanged.connect(contentTypeChanged)

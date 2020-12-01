@@ -1,6 +1,5 @@
 import sys
 from time import time
-import webbrowser
 
 from PyQt5.Qt import *
 from PyQt5.QtGui import *
@@ -9,6 +8,13 @@ from PyQt5.QtCore import *
 from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 from apistuff import *
+
+def topmost_parent(widgetitem):
+    p = widgetitem.parent()
+    if p is None:
+        return widgetitem
+    else:
+        return topmost_parent(p)
 
 class SeparatorItem(QTreeWidgetItem):
     """
@@ -71,25 +77,16 @@ class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
             self.setText(0, str(self.obj))
 
         datestr = get_date_string(self.obj)
-        self.created = parse_date_string(datestr)
+        if datestr:
+            self.created = parse_date_string(datestr)
+        else:
+            self.created = self.parent().created
 
-        self.setText(1, format_date(self.created))
+        # self.setText(1, format_date(self.created))
+        self.setText(1, str(self.created))
 
-        # self.dblClicks = 0
-
-        # self.dblClickActions = []
-        # if hasattr(self, 'expand'):
-        #     self.dblClickActions.append(self.expand)
-        # if hasattr(self, 'open'):
-        #     self.dblClickActions.append(self.open)
-        # self.dblClickActions.append(lambda: None)
-
-    # def dblClickFcn(self):
-    #     if self.dblClicks < len(self.dblClickActions) - 1:
-    #         self.dblClickActions[self.dblClicks]() # execute function
-    #     else:
-    #         self.dblClickActions[-1]() # execute last function repeatedly
-    #     self.dblClicks += 1
+    def course(self):
+        return topmost_parent(self)
 
 class CourseItem(CanvasItem):
     """
@@ -106,6 +103,8 @@ class CourseItem(CanvasItem):
             self.get_filesystem()
         elif self.content == 'modules':
             self.get_modules()
+        elif self.content == 'assignments':
+            self.get_assignments()
         elif self.content == 'tools':
             self.get_tools()
         else:
@@ -130,9 +129,20 @@ class CourseItem(CanvasItem):
         else:
             self.setDisabled(True)
 
+    def get_assignments(self):
+        for a in self.obj.get_assignments():
+            AssignmentItem(self, object=a)
+
     def get_tools(self):
         for t in self.obj.get_external_tools():
             ExternalToolItem(self, object=t)
+
+    def safe_get_item(self, method, id):
+        try:
+            return getattr(self.obj, method)(id)
+        except Unauthorized:
+            print('Unauthorized!')
+            return None
 
 class ExternalToolItem(CanvasItem):
 
@@ -143,7 +153,7 @@ class ExternalToolItem(CanvasItem):
 
     def expand(self, **kwargs):
         if 'url' in self.obj.custom_fields:
-            webbrowser.open(self.obj.custom_fields['url'])
+            open_and_notify(self.obj.custom_fields['url'])
         else:
             print('No external url found!')
             # print('')
@@ -164,71 +174,38 @@ class ModuleItem(CanvasItem):
             if mi.type == 'SubHeader':
                 pass
             elif mi.type == 'File':
-                ModuleFileItem(self, object=mi)
+                file = self.course().safe_get_item('get_file', mi.content_id)
+                if file:
+                    FileItem(self, object=file)
             elif mi.type == 'Page':
-                ModulePageItem(self, object=mi)
+                page = self.course().safe_get_item('get_page', mi.page_url)
+                if page:
+                    PageItem(self, object=page)
+            elif mi.type == 'Discussion':
+                discussion = self.course().safe_get_item('get_discussion_topic', mi.content_id)
+                if discussion:
+                    DiscussionItem(self, object=discussion)
+            elif mi.type == 'Quiz':
+                quiz = self.course().safe_get_item('get_quiz', mi.content_id)
+                if quiz:
+                    QuizItem(self, object=quiz)
+            elif mi.type == 'Assignment':
+                assignment = self.course().safe_get_item('get_assignment', mi.content_id)
+                if assignment:
+                    AssignmentItem(self, object=assignment)
             else:
-                ModuleDummyItem(self, object=mi)
+                print(repr(mi))
+                DummyItem(self, object=mi)
         if len(items) == 0:
             self.setDisabled(True)
 
-class ModuleFileItem(CanvasItem):
+class DummyItem(CanvasItem):
     """
-    class for tree elements with corresponding canvasapi "moduleitem" objects with type "file"
-    """
-    def __init__(self, *args, **kwargs):
-        super(ModuleFileItem, self).__init__(*args, **kwargs)
-
-        self.setIcon(0, QIcon('file.png'))
-
-    def open(self, **kwargs):
-        download_module_file(self.obj)
-
-class ModulePageItem(CanvasItem):
-    """
-    class for tree elements with corresponding canvasapi "moduleitem" objects with type "page"
+    class for tree elements with corresponding canvasapi "moduleitem" objects
+    this class should only be instantiated when an "unknown" type is encountered
     """
     def __init__(self, *args, **kwargs):
-        super(ModulePageItem, self).__init__(*args, **kwargs)
-
-        self.setIcon(0, QIcon('html.png'))
-
-    def expand(self, **kwargs):
-        advance = kwargs.get('advance', True)
-
-        links = get_module_page_links(self.obj)
-        # print(self.text(0))
-        # print('Link types: ' + str(list(links.keys())))
-        # print('')
-        files = links.get('File', [])
-        pages = links.get('Page', [])
-        quizzes = links.get('Quiz', [])
-        assignments = links.get('Assignment', [])
-
-        for a in files:
-            LinkedFileItem(self, element=a)
-        for a in pages:
-            LinkedPageItem(self, element=a)
-        for a in quizzes + assignments:
-            LinkedQuizItem(self, element=a)
-        if not sum(links.values(), []):
-            if advance:
-                self.dblClickFcn() # no action for expand, send another click
-
-    def open(self, **kwargs):
-        body = get_module_page_html(self.obj)
-        disp_html(body)
-
-
-class ModuleDummyItem(CanvasItem):
-    """
-    class for tree elements with corresponding canvasapi "moduleitem" objects with other types
-    (many are an assigment-like item)
-    """
-    def __init__(self, *args, **kwargs):
-        super(ModuleDummyItem, self).__init__(*args, **kwargs)
-
-        self.setIcon(0, QIcon('assigment.png'))
+        super(DummyItem, self).__init__(*args, **kwargs)
 
     def open(self, **kwargs):
         if hasattr(self.obj, 'url'):
@@ -236,8 +213,7 @@ class ModuleDummyItem(CanvasItem):
             js = r.json()
             if 'url' in js:
                 r = get_item_data(js['url'])
-                print('Opening {}.'.format(self.obj.title))
-                webbrowser.open(r.json()['url'])
+                open_and_notify(r.json()['url'])
 
 class FolderItem(CanvasItem):
     """
@@ -267,62 +243,110 @@ class FileItem(CanvasItem):
     def open(self, **kwargs):
         download_file(self.obj)
 
-class LinkedFileItem(QTreeWidgetItem, DoubleClickHandler):
+class PageItem(CanvasItem):
     """
-    class for tree elements corresponding to files linked on "module pages"
-    (no canvasapi object, but instead bs4 element from html; file can be downloaded)
-    """
-    def __init__(self, *args, **kwargs):
-        self.elem = kwargs.pop('element', None)
-        super(LinkedFileItem, self).__init__(*args, **kwargs)
-        super(DoubleClickHandler, self).__init__()
-
-        self.setIcon(0, QIcon('file.png'))
-
-        title = parse_title_from_link(self.elem.attrs)
-        self.setText(0, title)
-        
-    def open(self, **kwargs):
-        download_module_linked_file(self.elem.attrs)
-
-class LinkedPageItem(QTreeWidgetItem, DoubleClickHandler):
-    """
-    class for tree elements corresponding to (internal) pages linked on "module pages"
-    (no canvasapi object, but instead bs4 element from html)
+    class for tree elements with corresponding canvasapi "page" objects
     """
     def __init__(self, *args, **kwargs):
-        self.elem = kwargs.pop('element', None)
-        super(LinkedPageItem, self).__init__(*args, **kwargs)
-        super(DoubleClickHandler, self).__init__()
+        super(PageItem, self).__init__(*args, **kwargs)
 
         self.setIcon(0, QIcon('html.png'))
-        
-        title = parse_title_from_link(self.elem.attrs)
-        self.setText(0, title)
+
+    def expand(self, **kwargs):
+        advance = kwargs.get('advance', True)
+
+        links = get_page_links(self.obj)
+        # print(self.text(0))
+        # print('Link types: ' + str(list(links.keys())))
+        # print('')
+        files = links.get('File', [])
+        pages = links.get('Page', [])
+        quizzes = links.get('Quiz', [])
+        assignments = links.get('Assignment', [])
+
+        # for a in sum(links.values(), []):
+        #     info = parse_api_url(a.attrs['data-api-endpoint'])
+
+        for a in files:
+            info = parse_api_url(a.attrs['data-api-endpoint'])
+            file = self.course().safe_get_item('get_file', info['files'])
+            if file:
+                FileItem(self, object=file)
+        for a in pages:
+            info = parse_api_url(a.attrs['data-api-endpoint'])
+            page = self.course().safe_get_item('get_page', info['pages'])
+            if page:
+                PageItem(self, object=page)
+        for a in quizzes:
+            info = parse_api_url(a.attrs['data-api-endpoint'])
+            quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
+            if quiz:
+                QuizItem(self, object=quiz)
+        for a in assignments:
+            info = parse_api_url(a.attrs['data-api-endpoint'])
+            assignment = self.course().safe_get_item('get_assignment', info['assignments'])
+            if assignment:
+                AssignmentItem(self, object=assignment)
+        if not sum(links.values(), []):
+            if advance:
+                self.dblClickFcn() # no action for expand, send another click
 
     def open(self, **kwargs):
-        js = get_module_linked_page(self.elem.attrs)
-        if 'body' in js:
-            disp_html(js['body'])
+        if self.obj.body:
+            disp_html(self.obj.body)
+        else:
+            print('No content on page.')
 
-class LinkedQuizItem(QTreeWidgetItem, DoubleClickHandler):
+class QuizItem(CanvasItem):
     """
-    class for tree elements corresponding to (internal) pages linked on "module pages"
-    (no canvasapi object, but instead bs4 element from html)
+    class for tree elements with corresponding canvasapi "quiz" objects
     """
     def __init__(self, *args, **kwargs):
-        self.elem = kwargs.pop('element', None)
-        super(LinkedQuizItem, self).__init__(*args, **kwargs)
-        super(DoubleClickHandler, self).__init__()
+        super(QuizItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('assigment.png'))
-        
-        title = parse_title_from_link(self.elem.attrs)
-        self.setText(0, title)
+        self.setIcon(0, QIcon('quiz.png'))
 
     def open(self, **kwargs):
-        js = get_module_linked_page(self.elem.attrs)
-        webbrowser.open(js['html_url'])
+        open_and_notify(self.obj.html_url)
+
+class DiscussionItem(CanvasItem):
+    """
+    class for tree elements with corresponding canvasapi "discussiontopic" objects
+    """
+    def __init__(self, *args, **kwargs):
+        super(DiscussionItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(0, QIcon('discussion.png'))
+
+    def open(self, **kwargs):
+        disp_html(self.obj.message)
+
+class AssignmentItem(CanvasItem):
+    """
+    class for tree elements with corresponding canvasapi "discussiontopic" objects
+    """
+    def __init__(self, *args, **kwargs):
+        super(AssignmentItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(0, QIcon('assignment.png'))
+
+    def open(self, **kwargs):
+        if hasattr(self.obj, 'url'):
+            d = get_item_data(self.obj.url)
+            pagetype = d.headers['content-type'].split(';')[0]
+            if pagetype == 'application/json':
+                if 'url' in d.json():
+                    open_and_notify(d.json()['url'])
+                else:
+                    # revert to html url because this is json
+                    open_and_notify(self.obj.html_url)
+            else:
+                open_and_notify(self.obj.url)
+        else:
+            open_and_notify(self.obj.html_url)
+
+
+# ----------------------------------------------------------------------
             
 
 class SliderHLayout(QHBoxLayout):

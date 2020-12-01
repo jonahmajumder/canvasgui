@@ -48,7 +48,6 @@ def convert(*args):
     infile_asform = ('Macintosh HD' + str(infile)).replace(os.path.sep, ':')
     outfile_asform = ('Macintosh HD' + str(outfile)).replace(os.path.sep, ':')
 
-
     formatted = script.format(infile_asform, outfile_asform)
     # print(formatted)
     run_osascript(formatted)

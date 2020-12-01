@@ -9,6 +9,7 @@ from urllib import parse
 from dateutil.parser import isoparse
 from datetime import datetime
 import pytz
+import webbrowser
 import json
 
 from guihelper import *
@@ -53,11 +54,14 @@ def get_item_data(url):
     resp = requests.get(url, headers={'Authorization': 'Bearer {}'.format(TOKEN)})
     return resp
 
-def get_module_page_links(item):
-    body = get_module_page_html(item)
+def open_and_notify(url):
+    print('Opening linked url:\n{}'.format(url))
+    webbrowser.open(url)
+
+def get_page_links(page):
     linkdict = {}
-    if body is not None:
-        soup = BeautifulSoup(body, 'html.parser')
+    if page.body:
+        soup = BeautifulSoup(page.body, 'html.parser')
         links = soup.find_all('a')
         classes = [l.attrs.get('class', []) for l in links]
         rettypes = [l.attrs.get('data-api-returntype', '') for l in links]
@@ -67,64 +71,21 @@ def get_module_page_links(item):
                     if r not in linkdict:
                         linkdict[r] = []
                     linkdict[r].append(l)
-
-    # linkdict['files'] = [l for l in links if 'instructure_file_link' in l.attrs.get('class', [])]
-    # linkdict['internals'] = [l for l in links if 'data-api-returntype' in l.attrs and 'file_preview_link' not in l.attrs.get('class', []) and l not in linkdict['files']]
-
-    # leftover_links = [l for l in links if (l not in linkdict['files']) and (l not in linkdict['internals'])]
-    # linkdict['leftovers'] = leftover_links
-
-    # for k,v in linkdict.items():
-    #     print(k)
-    #     [print(l) for l in v]
-    #     print('')
-
     return linkdict
 
-def get_module_page_html(item):
-    r = get_item_data(item.url)
-    js = r.json()
-    if 'body' in js:
-        return js['body']
+def parse_api_url(apiurl):
+    pathstr = parse.urlsplit(apiurl).path.strip(os.sep)
+    parts = Path(pathstr).parts
+    if not len(parts) % 2:
+        info = {k:v for (k,v) in zip(parts[::2], parts[1::2])}
     else:
-        print(js)
-        return None
+        raise Exception('Odd number of path elements to parse ({})'.format(pathstr))
+    return info
 
 def download_file(item, loc=DOWNLOADS):
     if confirm_dialog('Download {}?'.format(item.filename), title='Confirm Download'):
         r = get_item_data(item.url)
         save_binary_response(r, item.filename, DOWNLOADS)
-
-def download_module_file(item, loc=DOWNLOADS):
-    r = get_item_data(item.url)
-    js = r.json()
-    r = get_item_data(js['url'])
-    if confirm_dialog('Download {}?'.format(js['display_name']), title='Confirm Download'):
-        save_binary_response(r, js['display_name'], DOWNLOADS)
-
-def download_module_linked_file(attrs, loc=DOWNLOADS):
-    r = get_item_data(attrs['href'])
-    if confirm_dialog('Download {}?'.format(attrs['title']), title='Confirm Download'):
-        save_binary_response(r, attrs['title'], DOWNLOADS)
-
-def get_module_linked_page(attrs):
-    r = get_item_data(attrs['data-api-endpoint'])
-    js = r.json()
-    return js
-
-def parse_title_from_link(attrs):
-    if 'title' in attrs:
-        return attrs['title']
-    else:
-        js = get_module_linked_page(attrs)
-        if 'title' in js:
-            return js['title']
-        elif 'display_name' in js:
-            return js['display_name']
-        else:
-            print(json.dumps(js))
-            raise Exception('Could not find a title!')
-
 
 def save_binary_response(resp, filename, loc):
     filename = parse.unquote(filename)
@@ -140,8 +101,8 @@ def save_binary_response(resp, filename, loc):
         convert(newpath)
         os.remove(newpath)
 
-
 def hasattr_not_none(obj, attr):
+    # check if has attr and also if that attr is not-None
     if hasattr(obj, attr):
         if getattr(obj, attr) is not None:
             return True
@@ -157,6 +118,8 @@ def get_date_string(canvasobj):
         return canvasobj.completed_at
     elif hasattr_not_none(canvasobj, 'unlock_at'):
         return canvasobj.unlock_at
+    elif hasattr_not_none(canvasobj, 'due_at'):
+        return canvasobj.due_at
     elif hasattr_not_none(canvasobj, 'url'): # do this one last because can't try another after
         jsdata = get_item_data(canvasobj.url).json()
         if 'created_at' in jsdata:
@@ -164,6 +127,8 @@ def get_date_string(canvasobj):
         else:
             return None
     else:
+        print('No date found!')
+        print(repr(canvasobj))
         return None
 
 def parse_date_string(datestring):
