@@ -93,44 +93,48 @@ class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
         general method to be used by any element that displays html
         allows creation of children for linked files, pages, etc.
         '''
-
         advance = kwargs.get('advance', True)
 
-        links = get_html_links(html)
-        # print(self.text(0))
-        # print('Link types: ' + str(list(links.keys())))
-        # print('')
-        files = links.get('File', [])
-        pages = links.get('Page', [])
-        quizzes = links.get('Quiz', [])
-        assignments = links.get('Assignment', [])
+        if html is not None:
+            links = get_html_links(html)
+            # print(self.text(0))
+            # print('Link types: ' + str(list(links.keys())))
+            # print('')
+            files = links.get('File', [])
+            pages = links.get('Page', [])
+            quizzes = links.get('Quiz', [])
+            assignments = links.get('Assignment', [])
 
-        # for a in sum(links.values(), []):
-        #     info = parse_api_url(a.attrs['data-api-endpoint'])
+            # for a in sum(links.values(), []):
+            #     info = parse_api_url(a.attrs['data-api-endpoint'])
 
-        for a in files:
-            info = parse_api_url(a.attrs['data-api-endpoint'])
-            file = self.course().safe_get_item('get_file', info['files'])
-            if file:
-                FileItem(self, object=file)
-        for a in pages:
-            info = parse_api_url(a.attrs['data-api-endpoint'])
-            page = self.course().safe_get_item('get_page', info['pages'])
-            if page:
-                PageItem(self, object=page)
-        for a in quizzes:
-            info = parse_api_url(a.attrs['data-api-endpoint'])
-            quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
-            if quiz:
-                QuizItem(self, object=quiz)
-        for a in assignments:
-            info = parse_api_url(a.attrs['data-api-endpoint'])
-            assignment = self.course().safe_get_item('get_assignment', info['assignments'])
-            if assignment:
-                AssignmentItem(self, object=assignment)
-        if not sum(links.values(), []):
+            for a in files:
+                info = parse_api_url(a.attrs['data-api-endpoint'])
+                file = self.course().safe_get_item('get_file', info['files'])
+                if file:
+                    FileItem(self, object=file)
+            for a in pages:
+                info = parse_api_url(a.attrs['data-api-endpoint'])
+                page = self.course().safe_get_item('get_page', info['pages'])
+                if page:
+                    PageItem(self, object=page)
+            for a in quizzes:
+                info = parse_api_url(a.attrs['data-api-endpoint'])
+                quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
+                if quiz:
+                    QuizItem(self, object=quiz)
+            for a in assignments:
+                info = parse_api_url(a.attrs['data-api-endpoint'])
+                assignment = self.course().safe_get_item('get_assignment', info['assignments'])
+                if assignment:
+                    AssignmentItem(self, object=assignment)
+            if not sum(links.values(), []):
+                if advance:
+                    self.dblClickFcn() # no action for expand, send another click
+        else:
             if advance:
-                self.dblClickFcn() # no action for expand, send another click
+                self.dblClickFcn()
+
 
 class CourseItem(CanvasItem):
     """
@@ -140,7 +144,7 @@ class CourseItem(CanvasItem):
         self.content = kwargs.pop('content', 'files')
         super(CourseItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('book.png'))
+        self.setIcon(0, QIcon('icons/book.png'))
 
     def expand(self, **kwargs):
         if self.content == 'files':
@@ -193,7 +197,7 @@ class ExternalToolItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(ExternalToolItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('link.png'))
+        self.setIcon(0, QIcon('icons/link.png'))
 
     def expand(self, **kwargs):
         if 'url' in self.obj.custom_fields:
@@ -210,7 +214,7 @@ class ModuleItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(ModuleItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('module.png'))
+        self.setIcon(0, QIcon('icons/module.png'))
 
     def expand(self, **kwargs):
         items = list(self.obj.get_module_items())
@@ -251,7 +255,7 @@ class ModuleItemItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(ModuleItemItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('link.png'))
+        self.setIcon(0, QIcon('icons/link.png'))
 
     def open(self, **kwargs):
         if hasattr(self.obj, 'html_url'):
@@ -266,7 +270,7 @@ class FolderItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(FolderItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('folder.png'))
+        self.setIcon(0, QIcon('icons/folder.png'))
 
     def expand(self, **kwargs):
         for file in safe_get_files(self.obj):
@@ -282,7 +286,7 @@ class FileItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(FileItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('file.png'))
+        self.setIcon(0, QIcon('icons/file.png'))
 
     def open(self, **kwargs):
         download_file(self.obj)
@@ -294,48 +298,10 @@ class PageItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(PageItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('html.png'))
+        self.setIcon(0, QIcon('icons/html.png'))
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.body, **kwargs)
-
-        # advance = kwargs.get('advance', True)
-
-        # links = get_html_links(self.obj.body)
-        # # print(self.text(0))
-        # # print('Link types: ' + str(list(links.keys())))
-        # # print('')
-        # files = links.get('File', [])
-        # pages = links.get('Page', [])
-        # quizzes = links.get('Quiz', [])
-        # assignments = links.get('Assignment', [])
-
-        # # for a in sum(links.values(), []):
-        # #     info = parse_api_url(a.attrs['data-api-endpoint'])
-
-        # for a in files:
-        #     info = parse_api_url(a.attrs['data-api-endpoint'])
-        #     file = self.course().safe_get_item('get_file', info['files'])
-        #     if file:
-        #         FileItem(self, object=file)
-        # for a in pages:
-        #     info = parse_api_url(a.attrs['data-api-endpoint'])
-        #     page = self.course().safe_get_item('get_page', info['pages'])
-        #     if page:
-        #         PageItem(self, object=page)
-        # for a in quizzes:
-        #     info = parse_api_url(a.attrs['data-api-endpoint'])
-        #     quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
-        #     if quiz:
-        #         QuizItem(self, object=quiz)
-        # for a in assignments:
-        #     info = parse_api_url(a.attrs['data-api-endpoint'])
-        #     assignment = self.course().safe_get_item('get_assignment', info['assignments'])
-        #     if assignment:
-        #         AssignmentItem(self, object=assignment)
-        # if not sum(links.values(), []):
-        #     if advance:
-        #         self.dblClickFcn() # no action for expand, send another click
 
     def open(self, **kwargs):
         if self.obj.body:
@@ -350,7 +316,7 @@ class QuizItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(QuizItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('quiz.png'))
+        self.setIcon(0, QIcon('icons/quiz.png'))
 
     def open(self, **kwargs):
         open_and_notify(self.obj.html_url)
@@ -362,7 +328,7 @@ class DiscussionItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(DiscussionItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('discussion.png'))
+        self.setIcon(0, QIcon('icons/discussion.png'))
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.message, **kwargs)
@@ -377,7 +343,7 @@ class AssignmentItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(AssignmentItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('assignment.png'))
+        self.setIcon(0, QIcon('icons/assignment.png'))
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.description, **kwargs)
