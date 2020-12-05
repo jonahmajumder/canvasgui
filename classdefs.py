@@ -88,6 +88,50 @@ class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
     def course(self):
         return topmost_parent(self)
 
+    def children_from_html(self, html, **kwargs):
+        '''
+        general method to be used by any element that displays html
+        allows creation of children for linked files, pages, etc.
+        '''
+
+        advance = kwargs.get('advance', True)
+
+        links = get_html_links(html)
+        # print(self.text(0))
+        # print('Link types: ' + str(list(links.keys())))
+        # print('')
+        files = links.get('File', [])
+        pages = links.get('Page', [])
+        quizzes = links.get('Quiz', [])
+        assignments = links.get('Assignment', [])
+
+        # for a in sum(links.values(), []):
+        #     info = parse_api_url(a.attrs['data-api-endpoint'])
+
+        for a in files:
+            info = parse_api_url(a.attrs['data-api-endpoint'])
+            file = self.course().safe_get_item('get_file', info['files'])
+            if file:
+                FileItem(self, object=file)
+        for a in pages:
+            info = parse_api_url(a.attrs['data-api-endpoint'])
+            page = self.course().safe_get_item('get_page', info['pages'])
+            if page:
+                PageItem(self, object=page)
+        for a in quizzes:
+            info = parse_api_url(a.attrs['data-api-endpoint'])
+            quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
+            if quiz:
+                QuizItem(self, object=quiz)
+        for a in assignments:
+            info = parse_api_url(a.attrs['data-api-endpoint'])
+            assignment = self.course().safe_get_item('get_assignment', info['assignments'])
+            if assignment:
+                AssignmentItem(self, object=assignment)
+        if not sum(links.values(), []):
+            if advance:
+                self.dblClickFcn() # no action for expand, send another click
+
 class CourseItem(CanvasItem):
     """
     class for tree elements with corresponding canvasapi "course" objects
@@ -195,25 +239,25 @@ class ModuleItem(CanvasItem):
                     AssignmentItem(self, object=assignment)
             else:
                 print(repr(mi))
-                DummyItem(self, object=mi)
+                ModuleItemItem(self, object=mi)
         if len(items) == 0:
             self.setDisabled(True)
 
-class DummyItem(CanvasItem):
+class ModuleItemItem(CanvasItem):
     """
     class for tree elements with corresponding canvasapi "moduleitem" objects
     this class should only be instantiated when an "unknown" type is encountered
     """
     def __init__(self, *args, **kwargs):
-        super(DummyItem, self).__init__(*args, **kwargs)
+        super(ModuleItemItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(0, QIcon('link.png'))
 
     def open(self, **kwargs):
-        if hasattr(self.obj, 'url'):
-            r = get_item_data(self.obj.url)
-            js = r.json()
-            if 'url' in js:
-                r = get_item_data(js['url'])
-                open_and_notify(r.json()['url'])
+        if hasattr(self.obj, 'html_url'):
+            open_and_notify(self.obj.html_url)
+        else:
+            print('No html_url to open.')
 
 class FolderItem(CanvasItem):
     """
@@ -253,43 +297,45 @@ class PageItem(CanvasItem):
         self.setIcon(0, QIcon('html.png'))
 
     def expand(self, **kwargs):
-        advance = kwargs.get('advance', True)
+        self.children_from_html(self.obj.body, **kwargs)
 
-        links = get_page_links(self.obj)
-        # print(self.text(0))
-        # print('Link types: ' + str(list(links.keys())))
-        # print('')
-        files = links.get('File', [])
-        pages = links.get('Page', [])
-        quizzes = links.get('Quiz', [])
-        assignments = links.get('Assignment', [])
+        # advance = kwargs.get('advance', True)
 
-        # for a in sum(links.values(), []):
+        # links = get_html_links(self.obj.body)
+        # # print(self.text(0))
+        # # print('Link types: ' + str(list(links.keys())))
+        # # print('')
+        # files = links.get('File', [])
+        # pages = links.get('Page', [])
+        # quizzes = links.get('Quiz', [])
+        # assignments = links.get('Assignment', [])
+
+        # # for a in sum(links.values(), []):
+        # #     info = parse_api_url(a.attrs['data-api-endpoint'])
+
+        # for a in files:
         #     info = parse_api_url(a.attrs['data-api-endpoint'])
-
-        for a in files:
-            info = parse_api_url(a.attrs['data-api-endpoint'])
-            file = self.course().safe_get_item('get_file', info['files'])
-            if file:
-                FileItem(self, object=file)
-        for a in pages:
-            info = parse_api_url(a.attrs['data-api-endpoint'])
-            page = self.course().safe_get_item('get_page', info['pages'])
-            if page:
-                PageItem(self, object=page)
-        for a in quizzes:
-            info = parse_api_url(a.attrs['data-api-endpoint'])
-            quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
-            if quiz:
-                QuizItem(self, object=quiz)
-        for a in assignments:
-            info = parse_api_url(a.attrs['data-api-endpoint'])
-            assignment = self.course().safe_get_item('get_assignment', info['assignments'])
-            if assignment:
-                AssignmentItem(self, object=assignment)
-        if not sum(links.values(), []):
-            if advance:
-                self.dblClickFcn() # no action for expand, send another click
+        #     file = self.course().safe_get_item('get_file', info['files'])
+        #     if file:
+        #         FileItem(self, object=file)
+        # for a in pages:
+        #     info = parse_api_url(a.attrs['data-api-endpoint'])
+        #     page = self.course().safe_get_item('get_page', info['pages'])
+        #     if page:
+        #         PageItem(self, object=page)
+        # for a in quizzes:
+        #     info = parse_api_url(a.attrs['data-api-endpoint'])
+        #     quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
+        #     if quiz:
+        #         QuizItem(self, object=quiz)
+        # for a in assignments:
+        #     info = parse_api_url(a.attrs['data-api-endpoint'])
+        #     assignment = self.course().safe_get_item('get_assignment', info['assignments'])
+        #     if assignment:
+        #         AssignmentItem(self, object=assignment)
+        # if not sum(links.values(), []):
+        #     if advance:
+        #         self.dblClickFcn() # no action for expand, send another click
 
     def open(self, **kwargs):
         if self.obj.body:
@@ -318,6 +364,9 @@ class DiscussionItem(CanvasItem):
 
         self.setIcon(0, QIcon('discussion.png'))
 
+    def expand(self, **kwargs):
+        self.children_from_html(self.obj.message, **kwargs)
+
     def open(self, **kwargs):
         disp_html(self.obj.message)
 
@@ -329,6 +378,9 @@ class AssignmentItem(CanvasItem):
         super(AssignmentItem, self).__init__(*args, **kwargs)
 
         self.setIcon(0, QIcon('assignment.png'))
+
+    def expand(self, **kwargs):
+        self.children_from_html(self.obj.description, **kwargs)
 
     def open(self, **kwargs):
         if hasattr(self.obj, 'url'):

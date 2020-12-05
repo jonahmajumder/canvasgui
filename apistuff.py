@@ -58,19 +58,18 @@ def open_and_notify(url):
     print('Opening linked url:\n{}'.format(url))
     webbrowser.open(url)
 
-def get_page_links(page):
+def get_html_links(html):
     linkdict = {}
-    if page.body:
-        soup = BeautifulSoup(page.body, 'html.parser')
-        links = soup.find_all('a')
-        classes = [l.attrs.get('class', []) for l in links]
-        rettypes = [l.attrs.get('data-api-returntype', '') for l in links]
-        for (l, r) in zip(links, rettypes):
-            if len(r) > 0:
-                if not json.loads(l.attrs.get('aria-hidden', 'false')):
-                    if r not in linkdict:
-                        linkdict[r] = []
-                    linkdict[r].append(l)
+    soup = BeautifulSoup(html, 'html.parser')
+    links = soup.find_all('a')
+    classes = [l.attrs.get('class', []) for l in links]
+    rettypes = [l.attrs.get('data-api-returntype', '') for l in links]
+    for (l, r) in zip(links, rettypes):
+        if len(r) > 0:
+            if not json.loads(l.attrs.get('aria-hidden', 'false')):
+                if r not in linkdict:
+                    linkdict[r] = []
+                linkdict[r].append(l)
     return linkdict
 
 def parse_api_url(apiurl):
