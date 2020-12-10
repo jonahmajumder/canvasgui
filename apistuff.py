@@ -54,6 +54,17 @@ def get_item_data(url):
     resp = requests.get(url, headers={'Authorization': 'Bearer {}'.format(TOKEN)})
     return resp
 
+def retrieve_sessionless_url(url):
+    d = get_item_data(url)
+    pagetype = d.headers['content-type'].split(';')[0]
+    if pagetype == 'application/json':
+        if 'url' in d.json():
+            return d.json()['url']
+        else:
+            return None
+    else:
+        return None
+
 def open_and_notify(url):
     print('Opening linked url:\n{}'.format(url))
     webbrowser.open(url)

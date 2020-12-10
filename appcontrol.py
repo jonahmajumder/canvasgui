@@ -39,6 +39,8 @@ tell application "Microsoft Excel"
     tell page setup object of active sheet
         set page orientation to landscape
         set zoom to false
+        set fit to pages wide to 1
+        set fit to pages tall to 9999
     end tell
     save as active sheet filename PDFPath file format PDF file format
     close active workbook saving no

@@ -73,6 +73,8 @@ class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
             self.setText(0, self.obj.title)
         elif hasattr(self.obj, 'display_name'):
             self.setText(0, self.obj.display_name)
+        elif hasattr(self.obj, 'label'):
+            self.setText(0, self.obj.label)
         else:
             self.setText(0, str(self.obj))
 
@@ -182,8 +184,9 @@ class CourseItem(CanvasItem):
             AssignmentItem(self, object=a)
 
     def get_tools(self):
-        for t in self.obj.get_external_tools():
-            ExternalToolItem(self, object=t)
+        tabs = [t for t in self.obj.get_tabs() if t.type == 'external']
+        for t in tabs:
+            TabItem(self, object=t)
 
     def safe_get_item(self, method, id):
         try:
@@ -193,7 +196,10 @@ class CourseItem(CanvasItem):
             return None
 
 class ExternalToolItem(CanvasItem):
-
+    """
+    class for tree elements with corresponding canvasapi "externaltool" objects
+    note: this is not great because some tools are inaccessible as these types of objects
+    """
     def __init__(self, *args, **kwargs):
         super(ExternalToolItem, self).__init__(*args, **kwargs)
 
@@ -202,6 +208,26 @@ class ExternalToolItem(CanvasItem):
     def expand(self, **kwargs):
         if 'url' in self.obj.custom_fields:
             open_and_notify(self.obj.custom_fields['url'])
+        else:
+            print('No external url found!')
+            # print('')
+            # print(repr(self.obj))
+
+class TabItem(CanvasItem):
+    """
+    class for tree elements with corresponding canvasapi "tab" objects
+    note: represents similar information to externaltools but preferable
+    because all are "accessible"
+    """
+    def __init__(self, *args, **kwargs):
+        super(TabItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(0, QIcon('icons/link.png'))
+
+    def open(self, **kwargs):
+        u = retrieve_sessionless_url(self.obj.url)
+        if u is not None:
+            open_and_notify(u)
         else:
             print('No external url found!')
             # print('')
@@ -338,7 +364,7 @@ class DiscussionItem(CanvasItem):
 
 class AssignmentItem(CanvasItem):
     """
-    class for tree elements with corresponding canvasapi "discussiontopic" objects
+    class for tree elements with corresponding canvasapi "assigment" objects
     """
     def __init__(self, *args, **kwargs):
         super(AssignmentItem, self).__init__(*args, **kwargs)
@@ -350,19 +376,13 @@ class AssignmentItem(CanvasItem):
 
     def open(self, **kwargs):
         if hasattr(self.obj, 'url'):
-            d = get_item_data(self.obj.url)
-            pagetype = d.headers['content-type'].split(';')[0]
-            if pagetype == 'application/json':
-                if 'url' in d.json():
-                    open_and_notify(d.json()['url'])
-                else:
-                    # revert to html url because this is json
-                    open_and_notify(self.obj.html_url)
+            u = retrieve_sessionless_url(self.obj.url)
+            if u is not None:
+                open_and_notify(u)
             else:
                 open_and_notify(self.obj.url)
         else:
             open_and_notify(self.obj.html_url)
-
 
 # ----------------------------------------------------------------------
             
