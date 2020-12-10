@@ -3,6 +3,7 @@ from canvasapi.exceptions import Unauthorized
 from bs4 import BeautifulSoup
 
 from pathlib import Path
+import base64
 import os
 import requests
 from urllib import parse
@@ -19,6 +20,28 @@ from secrets import BASEURL, TOKEN
 DOWNLOADS = os.path.expanduser('~/Downloads')
 
 TIMEZONE = pytz.timezone('America/New_York')
+
+def get_user_info(canvas):
+    u = canvas.get_current_user()
+    return u.get_profile()
+
+def generate_profile_html(data):
+    html = '<div align="center">'
+    if 'name' in data:
+        html += '<h1>{}</h1>'.format(data['name'])     
+    if 'avatar_url' in data:
+        img_content = get_item_data(data['avatar_url']).content
+        img_data_uri = base64.b64encode(img_content).decode('utf-8')
+        html += '<br><img src="data:image/png;base64,{}">'.format(img_data_uri)
+    if 'primary_email' in data:
+        html += '<h3>Email: {}</h3>'.format(data['primary_email'])
+    if 'login_id' in data:
+        html += '<h3>Login: {}</h3>'.format(data['login_id'])
+    if 'bio' in data:
+        html += '<p>{}</p>'.format(data['bio'])
+    html += '</div>'
+
+    return html
 
 def get_root_folder(course):
     all_folders = course.get_folders()

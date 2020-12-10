@@ -31,7 +31,6 @@ def confirm_dialog(text, title='Confirm'):
     )
     return bool(dlg.exec_())
 
-
 def disp_html(htmlstr, title='HTML'):
     m = QMainWindow()
 
@@ -58,7 +57,6 @@ def disp_html(htmlstr, title='HTML'):
             dlg.screen().geometry())
     )
     return dlg.exec_()
-
 
 if __name__ == '__main__':
     app = QApplication([])

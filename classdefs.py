@@ -331,7 +331,7 @@ class PageItem(CanvasItem):
 
     def open(self, **kwargs):
         if self.obj.body:
-            disp_html(self.obj.body)
+            disp_html(self.obj.body, title=self.text(0))
         else:
             print('No content on page.')
 
@@ -360,7 +360,7 @@ class DiscussionItem(CanvasItem):
         self.children_from_html(self.obj.message, **kwargs)
 
     def open(self, **kwargs):
-        disp_html(self.obj.message)
+        disp_html(self.obj.message, title=self.text(0))
 
 class AssignmentItem(CanvasItem):
     """

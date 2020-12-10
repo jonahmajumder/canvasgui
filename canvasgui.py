@@ -12,7 +12,12 @@ from apistuff import *
 from classdefs import *
 from secrets import BASEURL, TOKEN
 
-CONTENT_TYPES = ['modules', 'files', 'assignments', 'tools']
+CONTENT_TYPES = [
+    {'tag': 'modules', 'displayname': 'Modules'},
+    {'tag': 'files', 'displayname': 'Filesystem'},
+    {'tag': 'assignments', 'displayname': 'Assignments'},
+    {'tag': 'tools', 'displayname': 'External Tools'}
+]
 
 canvas = Canvas(BASEURL, TOKEN)
 
@@ -28,10 +33,8 @@ tree.setColumnCount(2)
 tree.header().setSectionResizeMode(QHeaderView.Stretch)
 
 contentTypeComboBox = QComboBox()
-contentTypeComboBox.addItem('Modules')
-contentTypeComboBox.addItem('Filesystem')
-contentTypeComboBox.addItem('Assignments')
-contentTypeComboBox.addItem('External Tools')
+for ct in CONTENT_TYPES:
+    contentTypeComboBox.addItem(ct['displayname'])
 
 contentTypeLayout = QHBoxLayout()
 contentTypeLayout.addItem(QSpacerItem(20,40))
@@ -71,7 +74,7 @@ central.setLayout(mainLayout)
 main.setCentralWidget(central)
 
 def add_courses(onlyFavorites, contentTypeIdx):
-    contentType = CONTENT_TYPES[contentTypeIdx]
+    contentType = CONTENT_TYPES[contentTypeIdx]['tag']
 
     favorites, others = get_courses_separated(canvas)
 
