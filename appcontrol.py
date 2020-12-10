@@ -30,6 +30,21 @@ tell application "Microsoft PowerPoint"
     quit
 end tell
 """
+excelscript = """
+set PDFPath to "{1}"
+tell application "Microsoft Excel"
+    launch
+    open file "{0}"
+    alias PDFPath
+    tell page setup object of active sheet
+        set page orientation to landscape
+        set zoom to false
+    end tell
+    save as active sheet filename PDFPath file format PDF file format
+    close active workbook saving no
+    quit
+end tell
+"""
 
 def convert(*args):
     infile = Path(args[0])
@@ -37,6 +52,8 @@ def convert(*args):
         script = wordscript
     elif infile.suffix in ['.ppt', '.pptx']:
         script = pptscript
+    elif infile.suffix in ['.xls', '.xlsx']:
+        script = excelscript
     else:
         raise Exception('Unhandled file extension!')
 
@@ -50,8 +67,8 @@ def convert(*args):
 
     formatted = script.format(infile_asform, outfile_asform)
     # print(formatted)
-    run_osascript(formatted)
+    ret = run_osascript(formatted)
 
 if __name__ == '__main__':
-     f = '/Users/jonahmajumder/Downloads/07 - Lipid membrane structure.ppt'
+     f = '/Users/jonahmajumder/Downloads/Case 2 WES.xlsx'
      convert(f)

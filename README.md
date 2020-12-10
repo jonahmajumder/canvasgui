@@ -7,7 +7,8 @@ Login is currently accomplished by generation of an OAuth token (simplest online
 ### To do list:
 
 - [ ] Interactive login (rather than just by file with credentials)
-- [ ] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
+- [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
 - [ ] Better column resizing
 - [ ] Sorting by date (with smart date display)
 - [ ] Select external tools from "tabs" rather than directly
+- [ ] Dialogs instead of terminal printed lines

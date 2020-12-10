@@ -96,9 +96,10 @@ def save_binary_response(resp, filename, loc):
     else:
         print('{} already exists here; file not replaced.'.format(filename))
 
-    if newpath.suffix in ['.doc', '.docx', '.ppt', '.pptx']:
-        convert(newpath)
-        os.remove(newpath)
+    if newpath.suffix in ['.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx']:
+        if confirm_dialog('Convert {} to PDF?'.format(filename), title='Convert File'):
+            convert(newpath)
+            os.remove(newpath)
 
 def hasattr_not_none(obj, attr):
     # check if has attr and also if that attr is not-None
