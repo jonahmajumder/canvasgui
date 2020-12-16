@@ -1,12 +1,18 @@
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, run
 from pathlib import Path
-import os
+import os  
 
 def run_osascript(script, args=[]):
     p = Popen(['osascript', '-'] + args, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
     stdout, stderr = p.communicate(script)
     return stdout
 
+termtitle = """
+tell application "Terminal" to set custom title of first window to "{}"
+"""
+
+def set_term_title(title):
+    run_osascript(termtitle.format(title))
 
 wordscript = """
 tell application "Microsoft Word"

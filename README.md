@@ -11,10 +11,13 @@ Login is currently accomplished by generation of an OAuth token (simplest online
 ### To do list:
 
 - [X] Make app into class (rather than script)
-- [ ] Interactive login (rather than just by file with credentials)
+- [ ] Pereferences UI allowing specification of login credentials, download destination, whether to show only favorite classes(?)
+- [ ] Context menus for everything but expand
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
 - [ ] Better column resizing
-- [ ] Sorting by date (with smart date display)
+- [ ] Sorting by date (WITH smart date display)
 - [X] Select external tools from "tabs" rather than directly
 - [ ] Dialogs instead of terminal printed lines
 - [ ] Dealing with duplicate children
+- [ ] Deployment into macOS (.app) standalone application
+- [ ] Multithreaded retrieval of data for "expand all" (back burner)

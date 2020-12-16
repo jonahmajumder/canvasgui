@@ -10,6 +10,7 @@ from canvasapi.exceptions import Unauthorized
 
 from apistuff import *
 from classdefs import *
+from appcontrol import set_term_title
 from secrets import BASEURL, TOKEN
 
 class CanvasApp(QMainWindow):
@@ -21,11 +22,16 @@ class CanvasApp(QMainWindow):
         {'tag': 'tools', 'displayname': 'External Tools'}
     ]
     SIZE = (800, 600)
+    TITLE = 'Canvas Browser'
 
     def __init__(self, *args, **kwargs):
         super(QMainWindow, self).__init__(*args, **kwargs)
 
         self.app = QApplication.instance()
+
+        self.app.setAttribute(Qt.AA_UseHighDpiPixmaps)
+        self.app.setWindowIcon(QIcon('icons/icon.icns'))
+        self.setWindowTitle(self.TITLE)
 
         self.canvas = Canvas(BASEURL, TOKEN)
 
@@ -39,8 +45,6 @@ class CanvasApp(QMainWindow):
         self.tree.sortByColumn(1, Qt.DescendingOrder) # most recent at top
 
         self.show()
-
-        self.app.setAttribute(Qt.AA_UseHighDpiPixmaps)
         
         self.center_on_screen()
 
@@ -155,6 +159,8 @@ class CanvasApp(QMainWindow):
 
         disp_html(h, title='Current User')
 
+
+# set_term_title(CanvasApp.TITLE)
 
 app = QApplication(sys.argv)
 gui = CanvasApp()
