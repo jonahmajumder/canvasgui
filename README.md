@@ -13,7 +13,7 @@ Login is accomplished by generation of an OAuth token (simplest online via your 
 
 - [PyQt5](https://pypi.org/project/PyQt5/)
 - [CanvasAPI](https://pypi.org/project/canvasapi/)
-- [dateutil](https://pypi.org/project/python-dateutil/1.4/)
+- [dateutil](https://pypi.org/project/python-dateutil/)
 
 ### To do list:
 
