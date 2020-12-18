@@ -6,7 +6,14 @@ Below is a depiction of content from my own classes, viewed at the "module" leve
 
 <img src="screenshot.png" width="600">
 
-Login is currently accomplished by generation of an OAuth token (simplest online via your user profile page, as explained [here](https://canvas.instructure.com/doc/api/file.oauth.html#manual-token-generation)). That token, along with an institution-specific base URL, is included in a "secret" file.
+Login is accomplished by generation of an OAuth token (simplest online via your user profile page, as explained [here](https://canvas.instructure.com/doc/api/file.oauth.html#manual-token-generation)). That token, along with an institution-specific base URL, is currently included in a dedicated file.
+
+### Nonstandard Dependencies
+(All available on PyPI)
+
+- [PyQt5](https://pypi.org/project/PyQt5/)
+- [CanvasAPI](https://pypi.org/project/canvasapi/)
+- [dateutil](https://pypi.org/project/python-dateutil/1.4/)
 
 ### To do list:
 
