@@ -1,6 +1,8 @@
 from subprocess import Popen, PIPE, run
 from pathlib import Path
-import os  
+import os
+
+CONVERTIBLE_EXTENSIONS = ['.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx']
 
 def run_osascript(script, args=[]):
     p = Popen(['osascript', '-'] + args, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
@@ -58,17 +60,23 @@ def convert(*args):
     infile = Path(args[0])
     if infile.suffix in ['.doc', '.docx']:
         script = wordscript
+        app = 'Word'
     elif infile.suffix in ['.ppt', '.pptx']:
         script = pptscript
+        app = 'PowerPoint'
     elif infile.suffix in ['.xls', '.xlsx']:
         script = excelscript
+        app = 'Excel'
     else:
         raise Exception('Unhandled file extension!')
 
     if len(args) < 2:
         outfile = infile.with_suffix('.pdf')
     else:
-        outfile = args[1]
+        outfile = Path(args[1])
+
+    if outfile.exists():
+        print('Overwriting existing PDF file. {} may require access.'.format(app))
 
     infile_asform = ('Macintosh HD' + str(infile)).replace(os.path.sep, ':')
     outfile_asform = ('Macintosh HD' + str(outfile)).replace(os.path.sep, ':')

@@ -1,6 +1,7 @@
 import sys
 from time import time
 import webbrowser
+import base64
 
 from PyQt5.Qt import *
 from PyQt5.QtGui import *
@@ -8,13 +9,12 @@ from PyQt5.QtGui import *
 from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 
-from apistuff import *
-from classdefs import *
+from guihelper import disp_html
+from classdefs import CourseItem, SeparatorItem, SliderHLayout
 from appcontrol import set_term_title
 from secrets import BASEURL, TOKEN
 
 class CanvasApp(QMainWindow):
-
     CONTENT_TYPES = [
         {'tag': 'modules', 'displayname': 'Modules'},
         {'tag': 'files', 'displayname': 'Filesystem'},
@@ -27,6 +27,7 @@ class CanvasApp(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(QMainWindow, self).__init__(*args, **kwargs)
 
+        # establish easy reference to running QApplication
         self.app = QApplication.instance()
 
         self.app.setAttribute(Qt.AA_UseHighDpiPixmaps)
@@ -34,6 +35,7 @@ class CanvasApp(QMainWindow):
         self.setWindowTitle(self.TITLE)
 
         self.canvas = Canvas(BASEURL, TOKEN)
+        self.user = self.canvas.get_current_user()
 
         self.addWidgets()
 
@@ -42,11 +44,14 @@ class CanvasApp(QMainWindow):
         self.connect_signals()
 
         self.tree.setSortingEnabled(True)
-        self.tree.sortByColumn(1, Qt.DescendingOrder) # most recent at top
+        # self.tree.sortByColumn(1, Qt.DescendingOrder) # most recent at top
 
         self.show()
         
         self.center_on_screen()
+
+    def auth_get(self, url):
+        return self.canvas._Canvas__requester.request('GET', _url=url)
 
 # -------------------- INITIALIZATION METHODS --------------------
 
@@ -105,7 +110,7 @@ class CanvasApp(QMainWindow):
                 Qt.LeftToRight,
                 Qt.AlignCenter,
                 QSize(*self.SIZE),
-                self.screen().geometry() # center on current screen
+                self.screen().geometry() # rectangle to center to
             )
         )
 
@@ -118,10 +123,17 @@ class CanvasApp(QMainWindow):
 
 # -------------------- FUNCTIONAL METHODS --------------------
 
+    def get_courses_separated(self):
+        favorites = self.user.get_favorite_courses()
+        favorite_ids = [c.id for c in favorites]
+        all_courses = list(self.user.get_courses())
+        others = [c for c in all_courses if c.id not in favorite_ids]
+        return favorites, others
+
     def add_courses(self, onlyFavorites, contentTypeIdx):
         contentType = self.CONTENT_TYPES[contentTypeIdx]['tag']
 
-        favorites, others = get_courses_separated(self.canvas)
+        favorites, others = self.get_courses_separated()
 
         for course in favorites:
             CourseItem(self.tree, object=course, content=contentType)
@@ -153,12 +165,29 @@ class CanvasApp(QMainWindow):
         self.expand_children(self.tree.invisibleRootItem())
         print('Load time: {:.2f}'.format(time() - start_time))
 
+    def generate_profile_html(self):
+        data = self.user.get_profile()
+
+        html = '<div align="center">'
+        if 'name' in data:
+            html += '<h1>{}</h1>'.format(data['name'])     
+        if 'avatar_url' in data:
+            img_content = self.auth_get(data['avatar_url']).content
+            img_data_uri = base64.b64encode(img_content).decode('utf-8')
+            html += '<br><img src="data:image/png;base64,{}">'.format(img_data_uri)
+        if 'primary_email' in data:
+            html += '<h3>Email: {}</h3>'.format(data['primary_email'])
+        if 'login_id' in data:
+            html += '<h3>Login: {}</h3>'.format(data['login_id'])
+        if 'bio' in data:
+            html += '<p>{}</p>'.format(data['bio'])
+        html += '</div>'
+
+        return html
+
     def show_user(self):
-        d = get_user_info(self.canvas)
-        h = generate_profile_html(d)
-
-        disp_html(h, title='Current User')
-
+        htmlstr = self.generate_profile_html()
+        disp_html(htmlstr, title='Current User')
 
 # set_term_title(CanvasApp.TITLE)
 

@@ -1,20 +1,24 @@
 import sys
 from time import time
+import json
+import os
+from pathlib import Path
+import webbrowser
 
 from PyQt5.Qt import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 
+from bs4 import BeautifulSoup
+from urllib import parse
+
 from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
-from apistuff import *
+from utils import Date, Preferences
+from appcontrol import convert, CONVERTIBLE_EXTENSIONS
+from guihelper import disp_html, confirm_dialog
 
-def topmost_parent(widgetitem):
-    p = widgetitem.parent()
-    if p is None:
-        return widgetitem
-    else:
-        return topmost_parent(p)
+DOWNLOADS = os.path.expanduser('~/Downloads')
 
 class SeparatorItem(QTreeWidgetItem):
     """
@@ -57,7 +61,6 @@ class DoubleClickHandler():
         
         # print('Double clicks: {}'.format(nclicks))
 
-
 class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
     """
     general parent class for tree elements with corresponding canvasapi objects
@@ -78,27 +81,45 @@ class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
         else:
             self.setText(0, str(self.obj))
 
-        datestr = get_date_string(self.obj)
-        if datestr:
-            self.created = parse_date_string(datestr)
-        else:
-            self.created = self.parent().created
+        self.date = Date(self.obj)
 
         # self.setText(1, format_date(self.created))
-        self.setText(1, str(self.created))
+        self.setText(1, self.date.smart_formatted())
+        self.setData(1, Qt.InitialSortOrderRole, self.date.as_qdt())
+
+    def auth_get(self, url):
+        return self.obj._requester.request('GET', _url=url)
 
     def course(self):
-        return topmost_parent(self)
+        if self.parent() is None:
+            return self
+        else:
+            return self.parent().course()
+
+    @staticmethod
+    def get_html_links(html):
+        linkdict = {}
+        soup = BeautifulSoup(html, 'html.parser')
+        links = soup.find_all('a')
+        classes = [l.attrs.get('class', []) for l in links]
+        rettypes = [l.attrs.get('data-api-returntype', '') for l in links]
+        for (l, r) in zip(links, rettypes):
+            if len(r) > 0:
+                if not json.loads(l.attrs.get('aria-hidden', 'false')):
+                    if r not in linkdict:
+                        linkdict[r] = []
+                    linkdict[r].append(l)
+        return linkdict
 
     def children_from_html(self, html, **kwargs):
         '''
-        general method to be used by any element that displays html
-        allows creation of children for linked files, pages, etc.
+        general method to be used by any element that contains html
+        creates children for linked files, pages, etc.
         '''
         advance = kwargs.get('advance', True)
 
         if html is not None:
-            links = get_html_links(html)
+            links = self.get_html_links(html)
             # print(self.text(0))
             # print('Link types: ' + str(list(links.keys())))
             # print('')
@@ -108,25 +129,25 @@ class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
             assignments = links.get('Assignment', [])
 
             # for a in sum(links.values(), []):
-            #     info = parse_api_url(a.attrs['data-api-endpoint'])
+            #     info = self.parse_api_url(a.attrs['data-api-endpoint'])
 
             for a in files:
-                info = parse_api_url(a.attrs['data-api-endpoint'])
+                info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 file = self.course().safe_get_item('get_file', info['files'])
                 if file:
                     FileItem(self, object=file)
             for a in pages:
-                info = parse_api_url(a.attrs['data-api-endpoint'])
+                info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 page = self.course().safe_get_item('get_page', info['pages'])
                 if page:
                     PageItem(self, object=page)
             for a in quizzes:
-                info = parse_api_url(a.attrs['data-api-endpoint'])
+                info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
                 if quiz:
                     QuizItem(self, object=quiz)
             for a in assignments:
-                info = parse_api_url(a.attrs['data-api-endpoint'])
+                info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 assignment = self.course().safe_get_item('get_assignment', info['assignments'])
                 if assignment:
                     AssignmentItem(self, object=assignment)
@@ -137,6 +158,30 @@ class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
             if advance:
                 self.dblClickFcn()
 
+    def retrieve_sessionless_url(self):
+        if hasattr(self.obj, 'url'):
+            d = self.auth_get(self.obj.url)
+            pagetype = d.headers['content-type'].split(';')[0]
+            if pagetype == 'application/json':
+                if 'url' in d.json():
+                    return d.json()['url']
+
+        return None
+
+    @staticmethod
+    def parse_api_url(apiurl):
+        pathstr = parse.urlsplit(apiurl).path.strip(os.sep)
+        parts = Path(pathstr).parts
+        if not len(parts) % 2:
+            info = {k:v for (k,v) in zip(parts[::2], parts[1::2])}
+        else:
+            raise Exception('Odd number of path elements to parse ({})'.format(pathstr))
+        return info
+
+    @staticmethod
+    def open_and_notify(url):
+        print('Opening linked url:\n{}'.format(url))
+        webbrowser.open(url)
 
 class CourseItem(CanvasItem):
     """
@@ -161,14 +206,40 @@ class CourseItem(CanvasItem):
             self.get_filesystem()
 
     def get_modules(self):
+        ct = 0
         for m in self.obj.get_modules():
             ModuleItem(self, object=m)
+            ct += 1
+        if ct == 0:
+            self.setDisabled(True)
+
+    def get_root_folder(self):
+        all_folders = self.obj.get_folders()
+        first_levels = [f for f in all_folders if len(Path(f.full_name).parents) == 1]
+        assert len(first_levels) == 1
+        return first_levels[0]
+
+    def safe_get_folders(self, folder):
+        try:
+            folders = list(folder.get_folders())
+        except Unauthorized:
+            print('Unauthorized!')
+            folders = []
+        return folders
+
+    def safe_get_files(self, folder):
+        try:
+            files = list(folder.get_files())
+        except Unauthorized:
+            print('Unauthorized!')
+            files = []
+        return files
 
     def get_filesystem(self):
-        root = get_root_folder(self.obj)
+        root = self.get_root_folder()
 
-        files = safe_get_files(root)
-        folders = safe_get_folders(root)
+        files = self.safe_get_files(root)
+        folders = self.safe_get_folders(root)
 
         if len(files + folders) > 0:
             for file in files:
@@ -207,7 +278,7 @@ class ExternalToolItem(CanvasItem):
 
     def expand(self, **kwargs):
         if 'url' in self.obj.custom_fields:
-            open_and_notify(self.obj.custom_fields['url'])
+            self.open_and_notify(self.obj.custom_fields['url'])
         else:
             print('No external url found!')
             # print('')
@@ -225,9 +296,9 @@ class TabItem(CanvasItem):
         self.setIcon(0, QIcon('icons/link.png'))
 
     def open(self, **kwargs):
-        u = retrieve_sessionless_url(self.obj.url)
+        u = self.retrieve_sessionless_url()
         if u is not None:
-            open_and_notify(u)
+            self.open_and_notify(u)
         else:
             print('No external url found!')
             # print('')
@@ -285,7 +356,7 @@ class ModuleItemItem(CanvasItem):
 
     def open(self, **kwargs):
         if hasattr(self.obj, 'html_url'):
-            open_and_notify(self.obj.html_url)
+            self.open_and_notify(self.obj.html_url)
         else:
             print('No html_url to open.')
 
@@ -314,8 +385,29 @@ class FileItem(CanvasItem):
 
         self.setIcon(0, QIcon('icons/file.png'))
 
+    # this is a faster version of the CanvasAPI's download method (not sure why...)
+    def save_data(self, filepath):
+        r = self.auth_get(self.obj.url)
+        with open(filepath, 'wb') as fileobj:
+            fileobj.write(r.content)
+
+    def download(self, loc=DOWNLOADS):
+        if confirm_dialog('Download {}?'.format(self.obj.filename), title='Confirm Download'):
+            filename = parse.unquote(self.obj.filename)
+            newpath = Path(loc) / filename # build local file Path obj
+            if not newpath.exists():
+                self.save_data(str(newpath))
+                print('{} downloaded.'.format(filename))
+            else:
+                print('{} already exists here; file not replaced.'.format(filename))
+
+        if newpath.suffix in CONVERTIBLE_EXTENSIONS:
+            if confirm_dialog('Convert {} to PDF?'.format(filename), title='Convert File'):
+                convert(newpath)
+                os.remove(newpath)
+
     def open(self, **kwargs):
-        download_file(self.obj)
+        self.download()
 
 class PageItem(CanvasItem):
     """
@@ -345,7 +437,7 @@ class QuizItem(CanvasItem):
         self.setIcon(0, QIcon('icons/quiz.png'))
 
     def open(self, **kwargs):
-        open_and_notify(self.obj.html_url)
+        self.open_and_notify(self.obj.html_url)
 
 class DiscussionItem(CanvasItem):
     """
@@ -376,13 +468,13 @@ class AssignmentItem(CanvasItem):
 
     def open(self, **kwargs):
         if hasattr(self.obj, 'url'):
-            u = retrieve_sessionless_url(self.obj.url)
+            u = self.retrieve_sessionless_url()
             if u is not None:
-                open_and_notify(u)
+                self.open_and_notify(u)
             else:
-                open_and_notify(self.obj.url)
+                self.open_and_notify(self.obj.url)
         else:
-            open_and_notify(self.obj.html_url)
+            self.open_and_notify(self.obj.html_url)
 
 # ----------------------------------------------------------------------
             
