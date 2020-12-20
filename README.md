@@ -6,7 +6,14 @@ Below is a depiction of content from my own classes, viewed at the "module" leve
 
 <img src="screenshot.png" width="600">
 
-Login is accomplished by generation of an OAuth token (simplest online via your user profile page, as explained [here](https://canvas.instructure.com/doc/api/file.oauth.html#manual-token-generation)). That token, along with an institution-specific base URL, is currently included in a dedicated file.
+Login is accomplished by generation of an OAuth token (simplest online via your user profile page, as explained [here](https://canvas.instructure.com/doc/api/file.oauth.html#manual-token-generation)). That token, along with an institution-specific base URL, can be included in a file or entered manually.
+
+The preferences file must be called "defaults.json" with the following keys:
+- "baseurl": institution-specific url
+- "token": personal generated oauth token
+- "downloadfolder": path to a local folder
+- "defaultcontent": "modules", "files", "assignments", or "tools"
+If any of these are deemed invalid (or no file is detected), a GUI will prompt the user to fill them in.
 
 ### Nonstandard Dependencies
 (All available on PyPI)
@@ -18,7 +25,7 @@ Login is accomplished by generation of an OAuth token (simplest online via your 
 ### To do list:
 
 - [X] Make app into class (rather than script)
-- [ ] Pereferences UI allowing specification of login credentials, download destination, whether to show only favorite classes(?)
+- [X] Pereferences UI allowing specification of login credentials, download destination, default view
 - [ ] Context menus for everything but expand
 - [ ] Bulk download of files (module/folder level)
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)

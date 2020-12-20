@@ -129,14 +129,17 @@ class Preferences(QDialog):
         return prefs
 
     def load_from_file(self, file):
-        with open(file, 'r') as fobj:
-            j = json.load(fobj)
-
         candidates = {}
-        candidates['baseurl'] = j.get('baseurl', '')
-        candidates['token'] = j.get('token', '')
-        candidates['downloadfolder'] = j.get('downloadfolder', '')
-        candidates['defaultcontent'] = j.get('defaultcontent', 'modules')
+
+        if Path(file).is_file():
+            with open(file, 'r') as fobj:
+                j = json.load(fobj)
+
+            candidates['baseurl'] = j.get('baseurl', '')
+            candidates['token'] = j.get('token', '')
+            candidates['downloadfolder'] = j.get('downloadfolder', '')
+            candidates['defaultcontent'] = j.get('defaultcontent', 'modules')
+        
         return candidates
 
     def save_current(self, file):
@@ -176,22 +179,27 @@ class Preferences(QDialog):
 
         valid = {k:True for k in candidates.keys()} # start with all true
 
+        trialbaseurl = candidates.get('baseurl', '')
+        trialtoken = candidates.get('token', '')
+        trialfolder = candidates.get('downloadfolder', '')
+        trialcontent = candidates.get('defaultcontent', '')
+
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter('always')
-            c = Canvas(candidates['baseurl'], candidates['token'])
+            c = Canvas(trialbaseurl, trialtoken)
         
         if len(w) > 0:
-            if w[0].message.args[0] == 'An invalid `base_url` for the Canvas API Instance was used. Please provide a valid HTTP or HTTPS URL if possible.':
-                valid['baseurl'] = False
-        try:
-            c.get_current_user()
-        except ConnectionError:
             valid['baseurl'] = False
-        except InvalidAccessToken:
-            # valid['baseurl'] = False
-            valid['token'] = False
+        else:
+            try:
+                c.get_current_user()
+            except ConnectionError:
+                valid['baseurl'] = False
+            except InvalidAccessToken:
+                # valid['baseurl'] = False
+                valid['token'] = False
 
-        p = Path(candidates['downloadfolder'])
+        p = Path(trialfolder)
 
         if not p == p.absolute():
             valid['downloadfolder'] = False
@@ -206,7 +214,7 @@ class Preferences(QDialog):
 
         tags = [c['tag'] for c in CourseItem.CONTENT_TYPES]
 
-        ct = candidates['defaultcontent']
+        ct = trialcontent
 
         if isinstance(ct, str):
             if ct in tags:
