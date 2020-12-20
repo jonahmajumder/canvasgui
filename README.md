@@ -9,10 +9,12 @@ Below is a depiction of content from my own classes, viewed at the "module" leve
 Login is accomplished by generation of an OAuth token (simplest online via your user profile page, as explained [here](https://canvas.instructure.com/doc/api/file.oauth.html#manual-token-generation)). That token, along with an institution-specific base URL, can be included in a file or entered manually.
 
 The preferences file must be called "defaults.json" with the following keys:
-- "baseurl": institution-specific url
-- "token": personal generated oauth token
-- "downloadfolder": path to a local folder
-- "defaultcontent": "modules", "files", "assignments", or "tools"
+```
+"baseurl": <institution-specific url>
+"token": <personal generated oauth token>
+"downloadfolder": <path to a local folder>
+"defaultcontent": <"modules", "files", "assignments", or "tools">
+```
 If any of these are deemed invalid (or no file is detected), a GUI will prompt the user to fill them in.
 
 ### Nonstandard Dependencies
