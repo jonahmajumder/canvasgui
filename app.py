@@ -31,13 +31,21 @@ class CanvasApp(QMainWindow):
 
         self.preferences = Preferences(self)
 
-        self.canvas = Canvas(BASEURL, TOKEN)
+        if len(self.preferences.current) == 0:
+            # this means no preferences (user closed pref window)
+            print('No preferences!')
+            sys.exit()
+
+        self.canvas = Canvas(
+            self.preferences.current['baseurl'],
+            self.preferences.current['token']
+        )
         self.user = self.canvas.get_current_user()
 
         self.addWidgets()
 
         # use preferences to set content type combo box
-
+        self.contentTypeComboBox.setCurrentIndex(self.preferences.current['defaultcontent'])
 
         self.add_courses(self.favoriteSlider.value(), self.contentTypeComboBox.currentIndex())
 
@@ -136,12 +144,14 @@ class CanvasApp(QMainWindow):
         favorites, others = self.get_courses_separated()
 
         for course in favorites:
-            CourseItem(self.tree, object=course, content=contentType)
+            CourseItem(self.tree, object=course, content=contentType,
+                downloadfolder=self.preferences.current['downloadfolder'])
 
         if not onlyFavorites:
             SeparatorItem(self.tree)
             for course in others:
-                CourseItem(self.tree, object=course, content=contentType)
+                CourseItem(self.tree, object=course, content=contentType,
+                    downloadfolder=self.preferences.current['downloadfolder'])
 
     def contentTypeChanged(self, idx):
         onlyFavorites = self.favoriteSlider.value()

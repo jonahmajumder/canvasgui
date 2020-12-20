@@ -22,4 +22,4 @@ app = QApplication(sys.argv)
 gui = CanvasApp()
 
 if __name__ == '__main__':
-    sys.exit(app.exec_()) # block until app exits
+    sys.exit(app.exec_()) # block until qapp instance exits

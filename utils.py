@@ -4,7 +4,7 @@ import json
 import warnings
 from requests.exceptions import ConnectionError
 
-from PyQt5.QtCore import QDateTime, QSize
+from PyQt5.QtCore import QDateTime, QSize, QTimer
 from PyQt5.QtWidgets import (QApplication, QComboBox, QDialog,
 QPlainTextEdit, QDialogButtonBox, QFormLayout, QGridLayout, QHBoxLayout,
 QLabel, QLineEdit, QToolButton, QPushButton, QSpinBox, QTextEdit,
@@ -44,9 +44,9 @@ class Preferences(QDialog):
 
         (isvalid, candidates) = self.validate(candidates)
         if all(isvalid.values()):
-            self.current = validated
-            print('Preferences loaded from "{}":'.format(self.AUTOLOAD_FILE))
-            print(self.current)
+            self.current = candidates
+            print("Preferences loaded from '{}'.".format(self.AUTOLOAD_FILE))
+            # print(self.current)
         else:
             validprefs = {k:v for (k,v) in candidates.items() if isvalid[k]}
             self.populate_fields(validprefs)
@@ -89,7 +89,7 @@ class Preferences(QDialog):
         self.okButton = self.buttons.addButton('Validate and Apply', QDialogButtonBox.AcceptRole)
         self.okButton.setFocus()
 
-        self.buttons.accepted.connect(self.accept)
+        self.buttons.accepted.connect(self.accept_if_valid)
         self.buttons.rejected.connect(self.reject)
 
         self.fullLayout.addLayout(self.mainLayout)
@@ -137,16 +137,40 @@ class Preferences(QDialog):
         candidates['token'] = j.get('token', '')
         candidates['downloadfolder'] = j.get('downloadfolder', '')
         candidates['defaultcontent'] = j.get('defaultcontent', 'modules')
-
         return candidates
 
     def save_current(self, file):
-        pass
+        with open(file, 'w') as fobj:
+            json.dump(self.current)
 
     def run(self, cancellable=True):
         self.cancelButton.setEnabled(cancellable)
-        print(self.exec_())
+        self.exec_()
         self.cancelButton.setEnabled(True)
+
+    def accept_if_valid(self):
+        candidates = self.gather_fields()
+        (isvalid, candidates) = self.validate(candidates)
+        if all(isvalid.values()):
+            self.current = candidates
+            self.accept()
+        else:
+            invalid = [k for (k,v) in isvalid.items() if not v]
+            self.highlight_invalid(invalid)
+
+    def highlight_invalid(self, invalid=[]):
+        if 'baseurl' in invalid:
+            self.color_red_temporarily(self.baseurlField)
+        if 'token' in invalid:
+            self.color_red_temporarily(self.tokenField)
+        if 'downloadfolder' in invalid:
+            self.color_red_temporarily(self.pathField)
+        if 'defaultcontent' in invalid:
+            self.color_red_temporarily(self.contentComboBox)
+
+    def color_red_temporarily(self, widget):
+        widget.setStyleSheet("background-color: rgba(255,0,0,100)")
+        QTimer.singleShot(400, lambda: widget.setStyleSheet(""))
 
     def validate(self, candidates):
 
@@ -164,10 +188,13 @@ class Preferences(QDialog):
         except ConnectionError:
             valid['baseurl'] = False
         except InvalidAccessToken:
-            valid['baseurl'] = False
+            # valid['baseurl'] = False
             valid['token'] = False
 
         p = Path(candidates['downloadfolder'])
+
+        if not p == p.absolute():
+            valid['downloadfolder'] = False
 
         if not p.exists():
             valid['downloadfolder'] = False
@@ -205,12 +232,9 @@ class Preferences(QDialog):
 
         return (valid, candidates)
 
-def run():
+if __name__ == '__main__':
     app = QApplication([])
     app.setAttribute(Qt.AA_UseHighDpiPixmaps)
-    return Preferences('app')
-
-if __name__ == '__main__':
-    run()    
+    p = Preferences('app')
 
         

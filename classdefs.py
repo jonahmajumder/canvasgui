@@ -83,7 +83,7 @@ class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
         else:
             self.setText(0, str(self.obj))
 
-        self.date = Date(self.obj)
+        self.date = Date(self)
 
         # self.setText(1, format_date(self.created))
         self.setText(1, self.date.smart_formatted())
@@ -97,6 +97,24 @@ class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
             return self
         else:
             return self.parent().course()
+
+    def safe_get_folders(self, folder=None):
+        parent = folder if folder else self.obj
+        try:
+            folders = list(parent.get_folders())
+        except Unauthorized:
+            print('Unauthorized!')
+            folders = []
+        return folders
+
+    def safe_get_files(self, folder=None):
+        parent = folder if folder else self.obj
+        try:
+            files = list(parent.get_files())
+        except Unauthorized:
+            print('Unauthorized!')
+            files = []
+        return files
 
     @staticmethod
     def get_html_links(html):
@@ -198,6 +216,7 @@ class CourseItem(CanvasItem):
 
     def __init__(self, *args, **kwargs):
         self.content = kwargs.pop('content', 'files')
+        self.downloadfolder = kwargs.pop('downloadfolder', DOWNLOADS)
         super(CourseItem, self).__init__(*args, **kwargs)
 
         self.setIcon(0, QIcon('icons/book.png'))
@@ -227,22 +246,6 @@ class CourseItem(CanvasItem):
         first_levels = [f for f in all_folders if len(Path(f.full_name).parents) == 1]
         assert len(first_levels) == 1
         return first_levels[0]
-
-    def safe_get_folders(self, folder):
-        try:
-            folders = list(folder.get_folders())
-        except Unauthorized:
-            print('Unauthorized!')
-            folders = []
-        return folders
-
-    def safe_get_files(self, folder):
-        try:
-            files = list(folder.get_files())
-        except Unauthorized:
-            print('Unauthorized!')
-            files = []
-        return files
 
     def get_filesystem(self):
         root = self.get_root_folder()
@@ -379,10 +382,10 @@ class FolderItem(CanvasItem):
         self.setIcon(0, QIcon('icons/folder.png'))
 
     def expand(self, **kwargs):
-        for file in safe_get_files(self.obj):
+        for file in self.safe_get_files():
             FileItem(self, object=file)
 
-        for folder in safe_get_folders(self.obj):
+        for folder in self.safe_get_folders():
             FolderItem(self, object=folder)
 
 class FileItem(CanvasItem):
@@ -400,10 +403,10 @@ class FileItem(CanvasItem):
         with open(filepath, 'wb') as fileobj:
             fileobj.write(r.content)
 
-    def download(self, loc=DOWNLOADS):
+    def download(self):
         if confirm_dialog('Download {}?'.format(self.obj.filename), title='Confirm Download'):
             filename = parse.unquote(self.obj.filename)
-            newpath = Path(loc) / filename # build local file Path obj
+            newpath = Path(self.course().downloadfolder) / filename # build local file Path obj
             if not newpath.exists():
                 self.save_data(str(newpath))
                 print('{} downloaded.'.format(filename))
@@ -491,9 +494,11 @@ class Date(object):
     """docstring for Date"""
     TIMEZONE = pytz.timezone('America/New_York')
 
-    def __init__(self, canvasobj):
+    def __init__(self, item):
+        self.item = item
+        self.obj = item.obj
         super(Date, self).__init__()
-        self.datetime = self.datetime_from_obj(canvasobj)
+        self.datetime = self.datetime_from_obj()
 
     @staticmethod
     def hasattr_not_none(obj, attr):
@@ -506,17 +511,17 @@ class Date(object):
         else:
             return False
 
-    def datestr_from_obj(self, canvasobj):
-        if self.hasattr_not_none(canvasobj, 'created_at'):
-            return canvasobj.created_at
-        elif self.hasattr_not_none(canvasobj, 'completed_at'):
-            return canvasobj.completed_at
-        elif self.hasattr_not_none(canvasobj, 'unlock_at'):
-            return canvasobj.unlock_at
-        elif self.hasattr_not_none(canvasobj, 'due_at'):
-            return canvasobj.due_at
-        elif self.hasattr_not_none(canvasobj, 'url'): # do this one last because can't try another after
-            jsdata = get_item_data(canvasobj.url).json()
+    def datestr_from_obj(self):
+        if self.hasattr_not_none(self.obj, 'created_at'):
+            return self.obj.created_at
+        elif self.hasattr_not_none(self.obj, 'completed_at'):
+            return self.obj.completed_at
+        elif self.hasattr_not_none(self.obj, 'unlock_at'):
+            return self.obj.unlock_at
+        elif self.hasattr_not_none(self.obj, 'due_at'):
+            return self.obj.due_at
+        elif self.hasattr_not_none(self.obj, 'url'): # do this one last because can't try another after
+            jsdata = self.item.auth_get(self.obj.url).json()
             if 'created_at' in jsdata:
                 return jsdata['created_at']
             else:
@@ -526,8 +531,8 @@ class Date(object):
             print(repr(canvasobj))
             return None
 
-    def datetime_from_obj(self, obj):
-        s = self.datestr_from_obj(obj)
+    def datetime_from_obj(self):
+        s = self.datestr_from_obj()
         if s is not None:
             # make datetime (which will be in UTC timc) and convert to EST
             return isoparse(s).astimezone(self.TIMEZONE)
