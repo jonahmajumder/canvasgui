@@ -32,9 +32,10 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [ ] Bulk download of files (module/folder level)
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
 - [ ] Better column resizing
-- [ ] Sorting by date (probably convert from widget to model view)
+- [X] Convert from widget to model architecture
+- [ ] Sorting by date
 - [X] Select external tools from "tabs" rather than directly
-- [ ] Dialogs instead of terminal printed lines
+- [ ] Replace terminal printed lines with dialog? Status bar?
 - [ ] Dealing with duplicate children
 - [ ] Deployment into macOS (.app) standalone application
 - [ ] Multithreaded retrieval of data for "expand all" (back burner)

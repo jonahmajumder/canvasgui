@@ -47,7 +47,7 @@ class CanvasApp(QMainWindow):
         # use preferences to set content type combo box
         self.contentTypeComboBox.setCurrentIndex(self.preferences.current['defaultcontent'])
 
-        self.add_courses(self.favoriteSlider.value(), self.contentTypeComboBox.currentIndex())
+        self.add_courses()
 
         self.connect_signals()
 
@@ -65,11 +65,12 @@ class CanvasApp(QMainWindow):
 
     def addWidgets(self):
 
-        self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(['Course', 'Date Created'])
+        self.tree = QTreeView()
+        self.model = QStandardItemModel(0, 2, self)
+        self.model.setHorizontalHeaderLabels(['Course', 'Date Created'])
         self.tree.setAlternatingRowColors(True)
-        self.tree.setColumnCount(2)
         self.tree.header().setSectionResizeMode(QHeaderView.Stretch)
+        self.tree.setModel(self.model)
 
         self.contentTypeComboBox = QComboBox()
         for ct in CourseItem.CONTENT_TYPES:
@@ -123,11 +124,15 @@ class CanvasApp(QMainWindow):
         )
 
     def connect_signals(self):
-        self.tree.itemDoubleClicked.connect(lambda item: item.dblClickFcn())
+        self.tree.doubleClicked.connect(self.tree_double_click)
 
         self.expandButton.clicked.connect(self.expand_all)
         self.contentTypeComboBox.currentIndexChanged.connect(self.contentTypeChanged)
         self.favoriteSlider.valueChanged.connect(self.favoriteSliderChanged)
+
+    def tree_double_click(self, index):
+        item = self.model.itemFromIndex(index)
+        item.expand(contentTypeIndex=self.contentTypeComboBox.currentIndex())
 
 # -------------------- FUNCTIONAL METHODS --------------------
 
@@ -138,30 +143,31 @@ class CanvasApp(QMainWindow):
         others = [c for c in all_courses if c.id not in favorite_ids]
         return favorites, others
 
-    def add_courses(self, onlyFavorites, contentTypeIdx):
-        contentType = CourseItem.CONTENT_TYPES[contentTypeIdx]['tag']
+    def add_courses(self):
+        onlyFavorites = self.favoriteSlider.value()
 
         favorites, others = self.get_courses_separated()
 
         for course in favorites:
-            CourseItem(self.tree, object=course, content=contentType,
-                downloadfolder=self.preferences.current['downloadfolder'])
+            item = CourseItem(object=course, downloadfolder=self.preferences.current['downloadfolder'])
+            self.model.appendRow([item, item.date])
 
         if not onlyFavorites:
-            SeparatorItem(self.tree)
+            # item = SeparatorItem(self.tree)
             for course in others:
-                CourseItem(self.tree, object=course, content=contentType,
-                    downloadfolder=self.preferences.current['downloadfolder'])
+                item = CourseItem(object=course, downloadfolder=self.preferences.current['downloadfolder'])
+                self.model.appendRow([item, item.date])
 
-    def contentTypeChanged(self, idx):
-        onlyFavorites = self.favoriteSlider.value()
-        self.tree.clear()
-        self.add_courses(onlyFavorites, idx)
+    def clear_courses(self):
+        self.model.removeRows(0, self.model.rowCount())
+
+    def contentTypeChanged(self):
+        self.clear_courses()
+        self.add_courses()
 
     def favoriteSliderChanged(self, onlyFavorites):
-        idx = self.contentTypeComboBox.currentIndex()
-        self.tree.clear()
-        self.add_courses(onlyFavorites, idx)
+        self.clear_courses()
+        self.add_courses()
 
     def expand_children(self, item):
         for i in range(item.childCount()):

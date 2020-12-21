@@ -22,7 +22,7 @@ from guihelper import disp_html, confirm_dialog
 
 DOWNLOADS = Path.home() / 'Downloads'
 
-class SeparatorItem(QTreeWidgetItem):
+class SeparatorItem(QStandardItem):
     """
     class to serve as divider (no functionality)
     """
@@ -37,60 +37,66 @@ class SeparatorItem(QTreeWidgetItem):
     def dblClickFcn(self):
         pass
 
-class DoubleClickHandler():
-    """
-    parent class to handle double click activity (not intended to be instantiated alone)
-    """
-    def __init__(self):
+# class DoubleClickHandler():
+#     """
+#     parent class to handle double click activity (not intended to be instantiated alone)
+#     """
+#     def __init__(self):
 
-        self.dblClicks = 0
+#         self.dblClicks = 0
 
-        self.dblClickActions = []
-        if hasattr(self, 'expand'):
-            self.dblClickActions.append(self.expand)
-        if hasattr(self, 'open'):
-            self.dblClickActions.append(self.open)
-        else:
-            self.dblClickActions.append(lambda: None) # make last is not expand
+#         self.dblClickActions = []
+#         if hasattr(self, 'expand'):
+#             self.dblClickActions.append(self.expand)
+#         if hasattr(self, 'open'):
+#             self.dblClickActions.append(self.open)
+#         else:
+#             self.dblClickActions.append(lambda: None) # make last is not expand
 
-    def dblClickFcn(self, **kwargs):
-        nclicks = self.dblClicks
-        self.dblClicks += 1
-        if nclicks < len(self.dblClickActions) - 1:
-            self.dblClickActions[nclicks](**kwargs) # execute function
-        else:
-            self.dblClickActions[-1](**kwargs) # execute last function repeatedly
+#     def dblClickFcn(self, **kwargs):
+#         nclicks = self.dblClicks
+#         self.dblClicks += 1
+#         if nclicks < len(self.dblClickActions) - 1:
+#             self.dblClickActions[nclicks](**kwargs) # execute function
+#         else:
+#             self.dblClickActions[-1](**kwargs) # execute last function repeatedly
         
-        # print('Double clicks: {}'.format(nclicks))
+#         # print('Double clicks: {}'.format(nclicks))
 
-class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
+class CanvasItem(QStandardItem):
     """
     general parent class for tree elements with corresponding canvasapi objects
+    (not intended to be instantiated directly)
     """
     def __init__(self, *args, **kwargs):
         self.obj = kwargs.pop('object', None)
         super(CanvasItem, self).__init__(*args, **kwargs)
-        super(DoubleClickHandler, self).__init__()
+        # super(DoubleClickHandler, self).__init__()
         # print(repr(self.obj))
         if hasattr(self.obj, 'name'):
-            self.setText(0, self.obj.name)
+            self.setText(self.obj.name)
         elif hasattr(self.obj, 'title'):
-            self.setText(0, self.obj.title)
+            self.setText(self.obj.title)
         elif hasattr(self.obj, 'display_name'):
-            self.setText(0, self.obj.display_name)
+            self.setText(self.obj.display_name)
         elif hasattr(self.obj, 'label'):
-            self.setText(0, self.obj.label)
+            self.setText(self.obj.label)
         else:
-            self.setText(0, str(self.obj))
+            self.setText(str(self.obj))
 
-        self.date = Date(self)
+        self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+
+        self.date = Date(item=self)
 
         # self.setText(1, format_date(self.created))
-        self.setText(1, self.date.smart_formatted())
-        self.setData(1, Qt.InitialSortOrderRole, self.date.as_qdt())
+        # self.setText(1, self.date.smart_formatted())
+        # self.setData(1, Qt.InitialSortOrderRole, self.date.as_qdt())
 
     def auth_get(self, url):
         return self.obj._requester.request('GET', _url=url)
+
+    def dblClickFcn(self):
+        pass
 
     def course(self):
         if self.parent() is None:
@@ -155,22 +161,26 @@ class CanvasItem(QTreeWidgetItem, DoubleClickHandler):
                 info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 file = self.course().safe_get_item('get_file', info['files'])
                 if file:
-                    FileItem(self, object=file)
+                    item = FileItem(object=file)
+                    self.appendRow([item, item.date])
             for a in pages:
                 info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 page = self.course().safe_get_item('get_page', info['pages'])
                 if page:
-                    PageItem(self, object=page)
+                    item = PageItem(object=page)
+                    self.appendRow([item, item.date])
             for a in quizzes:
                 info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
                 if quiz:
-                    QuizItem(self, object=quiz)
+                    item = QuizItem(object=quiz)
+                    self.appendRow([item, item.date])
             for a in assignments:
                 info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 assignment = self.course().safe_get_item('get_assignment', info['assignments'])
                 if assignment:
-                    AssignmentItem(self, object=assignment)
+                    item = AssignmentItem(object=assignment)
+                    self.appendRow([item, item.date])
             if not sum(links.values(), []):
                 if advance:
                     self.dblClickFcn() # no action for expand, send another click
@@ -215,31 +225,34 @@ class CourseItem(CanvasItem):
     ]
 
     def __init__(self, *args, **kwargs):
+        self.expanders = [
+            self.get_modules,
+            self.get_filesystem,
+            self.get_assignments,
+            self.get_tools
+        ]
+
         self.content = kwargs.pop('content', 'files')
         self.downloadfolder = kwargs.pop('downloadfolder', DOWNLOADS)
         super(CourseItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/book.png'))
+        self.setIcon(QIcon('icons/book.png'))
 
     def expand(self, **kwargs):
-        if self.content == 'files':
-            self.get_filesystem()
-        elif self.content == 'modules':
-            self.get_modules()
-        elif self.content == 'assignments':
-            self.get_assignments()
-        elif self.content == 'tools':
-            self.get_tools()
-        else:
-            self.get_filesystem()
+        contentTypeIndex = kwargs.get('contentTypeIndex', 0)
+        self.expanders[contentTypeIndex]()
+
+    def dblClickFcn(self, **kwargs):
+        self.expand(**kwargs)
 
     def get_modules(self):
         ct = 0
         for m in self.obj.get_modules():
-            ModuleItem(self, object=m)
+            item = ModuleItem(object=m)
+            self.appendRow([item, item.date])
             ct += 1
         if ct == 0:
-            self.setDisabled(True)
+            self.setDisabled(True) # if module is empty
 
     def get_root_folder(self):
         all_folders = self.obj.get_folders()
@@ -255,21 +268,25 @@ class CourseItem(CanvasItem):
 
         if len(files + folders) > 0:
             for file in files:
-                FileItem(self, object=file)
+                item = FileItem(object=file)
+                self.appendRow([item, item.date])
             
             for folder in folders:
-                FolderItem(self, object=folder)
+                item = FolderItem(object=folder)
+                self.appendRow([item, item.date])
         else:
             self.setDisabled(True)
 
     def get_assignments(self):
         for a in self.obj.get_assignments():
-            AssignmentItem(self, object=a)
+            item = AssignmentItem(object=a)
+            self.appendRow([item, item.date])
 
     def get_tools(self):
         tabs = [t for t in self.obj.get_tabs() if t.type == 'external']
         for t in tabs:
-            TabItem(self, object=t)
+            item = TabItem(object=t)
+            self.appendRow([item, item.date])
 
     def safe_get_item(self, method, id):
         try:
@@ -286,7 +303,10 @@ class ExternalToolItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(ExternalToolItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/link.png'))
+        self.setIcon(QIcon('icons/link.png'))
+
+    def dblClickFcn(self, **kwargs):
+        self.expand(**kwargs)
 
     def expand(self, **kwargs):
         if 'url' in self.obj.custom_fields:
@@ -305,7 +325,7 @@ class TabItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(TabItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/link.png'))
+        self.setIcon(QIcon('icons/link.png'))
 
     def open(self, **kwargs):
         u = self.retrieve_sessionless_url()
@@ -316,6 +336,9 @@ class TabItem(CanvasItem):
             # print('')
             # print(repr(self.obj))
 
+    def dblClickFcn(self, **kwargs):
+        self.open(**kwargs)
+
 class ModuleItem(CanvasItem):
     """
     class for tree elements with corresponding canvasapi "module" objects
@@ -323,7 +346,7 @@ class ModuleItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(ModuleItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/module.png'))
+        self.setIcon(QIcon('icons/module.png'))
 
     def expand(self, **kwargs):
         items = list(self.obj.get_module_items())
@@ -333,28 +356,37 @@ class ModuleItem(CanvasItem):
             elif mi.type == 'File':
                 file = self.course().safe_get_item('get_file', mi.content_id)
                 if file:
-                    FileItem(self, object=file)
+                    item = FileItem(object=file)
+                    self.appendRow([item, item.date])
             elif mi.type == 'Page':
                 page = self.course().safe_get_item('get_page', mi.page_url)
                 if page:
-                    PageItem(self, object=page)
+                    item = PageItem(object=page)
+                    self.appendRow([item, item.date])
             elif mi.type == 'Discussion':
-                discussion = self.course().safe_get_item('get_discussion_topic', mi.content_id)
-                if discussion:
-                    DiscussionItem(self, object=discussion)
+                disc = self.course().safe_get_item('get_discussion_topic', mi.content_id)
+                if disc:
+                    item = DiscussionItem(object=disc)
+                    self.appendRow([item, item.date])
             elif mi.type == 'Quiz':
                 quiz = self.course().safe_get_item('get_quiz', mi.content_id)
                 if quiz:
-                    QuizItem(self, object=quiz)
+                    item = QuizItem(object=quiz)
+                    self.appendRow([item, item.date])
             elif mi.type == 'Assignment':
                 assignment = self.course().safe_get_item('get_assignment', mi.content_id)
                 if assignment:
-                    AssignmentItem(self, object=assignment)
+                    item = AssignmentItem(object=assignment)
+                    self.appendRow([item, item.date])
             else:
                 print(repr(mi))
-                ModuleItemItem(self, object=mi)
+                item = ModuleItemItem(object=mi)
+                self.appendRow([item, item.date])
         if len(items) == 0:
             self.setDisabled(True)
+
+    def dblClickFcn(self, **kwargs):
+        self.expand(**kwargs)
 
 class ModuleItemItem(CanvasItem):
     """
@@ -364,13 +396,16 @@ class ModuleItemItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(ModuleItemItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/link.png'))
+        self.setIcon(QIcon('icons/link.png'))
 
     def open(self, **kwargs):
         if hasattr(self.obj, 'html_url'):
             self.open_and_notify(self.obj.html_url)
         else:
             print('No html_url to open.')
+
+    def dblClickFcn(self, **kwargs):
+        self.open(**kwargs)
 
 class FolderItem(CanvasItem):
     """
@@ -379,14 +414,19 @@ class FolderItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(FolderItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/folder.png'))
+        self.setIcon(QIcon('icons/folder.png'))
 
     def expand(self, **kwargs):
         for file in self.safe_get_files():
-            FileItem(self, object=file)
+            item = FileItem(object=file)
+            self.appendRow([item, item.date])
 
         for folder in self.safe_get_folders():
-            FolderItem(self, object=folder)
+            item = FolderItem(object=folder)
+            self.appendRow([item, item.date])
+
+    def dblClickFcn(self, **kwargs):
+        self.expand(**kwargs)
 
 class FileItem(CanvasItem):
     """
@@ -395,7 +435,7 @@ class FileItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(FileItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/file.png'))
+        self.setIcon(QIcon('icons/file.png'))
 
     # this is a faster version of the CanvasAPI's download method (not sure why...)
     def save_data(self, filepath):
@@ -418,7 +458,7 @@ class FileItem(CanvasItem):
                 convert(newpath)
                 os.remove(newpath)
 
-    def open(self, **kwargs):
+    def dblClickFcn(self, **kwargs):
         self.download()
 
 class PageItem(CanvasItem):
@@ -428,7 +468,7 @@ class PageItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(PageItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/html.png'))
+        self.setIcon(QIcon('icons/html.png'))
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.body, **kwargs)
@@ -446,10 +486,13 @@ class QuizItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(QuizItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/quiz.png'))
+        self.setIcon(QIcon('icons/quiz.png'))
 
     def open(self, **kwargs):
         self.open_and_notify(self.obj.html_url)
+
+    def dblClickFcn(self, **kwargs):
+        self.open(**kwargs)
 
 class DiscussionItem(CanvasItem):
     """
@@ -458,10 +501,13 @@ class DiscussionItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(DiscussionItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/discussion.png'))
+        self.setIcon(QIcon('icons/discussion.png'))
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.message, **kwargs)
+
+    def dblClickFcn(self, **kwargs):
+        self.expand(**kwargs)
 
     def open(self, **kwargs):
         disp_html(self.obj.message, title=self.text(0))
@@ -473,10 +519,13 @@ class AssignmentItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(AssignmentItem, self).__init__(*args, **kwargs)
 
-        self.setIcon(0, QIcon('icons/assignment.png'))
+        self.setIcon(QIcon('icons/assignment.png'))
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.description, **kwargs)
+
+    def dblClickFcn(self, **kwargs):
+        self.expand(**kwargs)
 
     def open(self, **kwargs):
         if hasattr(self.obj, 'url'):
@@ -490,15 +539,17 @@ class AssignmentItem(CanvasItem):
 
 # ----------------------------------------------------------------------
 
-class Date(object):
+class Date(QStandardItem):
     """docstring for Date"""
     TIMEZONE = pytz.timezone('America/New_York')
 
-    def __init__(self, item):
-        self.item = item
-        self.obj = item.obj
-        super(Date, self).__init__()
+    def __init__(self, *args, **kwargs):
+        self.item = kwargs.pop('item')
+        self.obj = self.item.obj
+        super(Date, self).__init__(*args, **kwargs)
         self.datetime = self.datetime_from_obj()
+
+        self.setText(self.smart_formatted())
 
     @staticmethod
     def hasattr_not_none(obj, attr):
@@ -511,7 +562,7 @@ class Date(object):
         else:
             return False
 
-    def datestr_from_obj(self):
+    def parse_datestr(self):
         if self.hasattr_not_none(self.obj, 'created_at'):
             return self.obj.created_at
         elif self.hasattr_not_none(self.obj, 'completed_at'):
@@ -528,11 +579,11 @@ class Date(object):
                 return None
         else:
             print('No date found!')
-            print(repr(canvasobj))
+            print(repr(self.obj))
             return None
 
     def datetime_from_obj(self):
-        s = self.datestr_from_obj()
+        s = self.parse_datestr()
         if s is not None:
             # make datetime (which will be in UTC timc) and convert to EST
             return isoparse(s).astimezone(self.TIMEZONE)
