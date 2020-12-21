@@ -10,10 +10,11 @@ from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 
 from guihelper import disp_html
-from classdefs import CourseItem, SeparatorItem, SliderHLayout, CustomProxyModel
+from classdefs import CourseItem, SeparatorItem, SliderHLayout, CustomProxyModel, SORTROLE
 from utils import Preferences
 from appcontrol import set_term_title
 from secrets import BASEURL, TOKEN
+
 
 class CanvasApp(QMainWindow):
     SIZE = (800, 600)
@@ -102,13 +103,14 @@ class CanvasApp(QMainWindow):
 
         self.tree = QTreeView()
         self.model = QStandardItemModel(0, 2, self)
-        self.proxyModel = CustomProxyModel(self.favoriteSlider.value())
+        self.proxyModel = CustomProxyModel(self.model, favorites_initial=self.favoriteSlider.value())
         self.proxyModel.setSourceModel(self.model)
         self.model.setHorizontalHeaderLabels(['Course', 'Date Created'])
         self.tree.setAlternatingRowColors(True)
         self.tree.header().setSectionResizeMode(QHeaderView.Stretch)
         self.tree.setSortingEnabled(True)
         self.tree.setModel(self.proxyModel)
+        self.tree.header().setSortIndicator(1, Qt.DescendingOrder)
 
         self.mainLayout.addWidget(self.tree)
 

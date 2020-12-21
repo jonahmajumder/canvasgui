@@ -33,7 +33,7 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
 - [ ] Better column resizing
 - [X] Convert from widget to model architecture
-- [ ] Sorting by date
+- [X] Sorting by date
 - [X] Select external tools from "tabs" rather than directly
 - [ ] Replace terminal printed lines with dialog? Status bar?
 - [X] Dealing with duplicate children

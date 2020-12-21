@@ -22,6 +22,8 @@ from guihelper import disp_html, confirm_dialog
 
 DOWNLOADS = Path.home() / 'Downloads'
 
+SORTROLE = 256
+
 class SeparatorItem(QStandardItem):
     """
     class to serve as divider (no functionality)
@@ -74,15 +76,18 @@ class CanvasItem(QStandardItem):
         # super(DoubleClickHandler, self).__init__()
         # print(repr(self.obj))
         if hasattr(self.obj, 'name'):
-            self.setText(self.obj.name)
+            self.name = self.obj.name
         elif hasattr(self.obj, 'title'):
-            self.setText(self.obj.title)
+            self.name = self.obj.title
         elif hasattr(self.obj, 'display_name'):
-            self.setText(self.obj.display_name)
+            self.name = self.obj.display_name
         elif hasattr(self.obj, 'label'):
-            self.setText(self.obj.label)
+            self.name = self.obj.label
         else:
-            self.setText(str(self.obj))
+            self.name = str(self.obj)
+
+        self.setText(self.name)
+        self.setData(self.name, SORTROLE)
 
         self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
@@ -560,6 +565,8 @@ class Date(QStandardItem):
         super(Date, self).__init__(*args, **kwargs)
         self.datetime = self.datetime_from_obj()
 
+        self.setData(self.as_qdt(), SORTROLE)
+
         self.setText(self.smart_formatted())
 
     @staticmethod
@@ -615,8 +622,8 @@ class Date(QStandardItem):
         else:
             return ''
 
-    def __lt__(self, other):
-        return self.datetime.timestamp() < other.datetime.timestamp()
+    # def __lt__(self, other):
+    #     return self.datetime.timestamp() < other.datetime.timestamp()
 
     def as_qdt(self):
         if self.datetime is not None:
@@ -632,10 +639,12 @@ class CustomProxyModel(QSortFilterProxyModel):
     this subclass implements filtering and sorting functions for the app
     """
 
-    def __init__(self, only_favorites_initial):
-        self.ONLY_FAVORITES = only_favorites_initial
+    def __init__(self, *args, **kwargs):
+        self.ONLY_FAVORITES = kwargs.pop('favorites_initial', True)
 
-        super(QSortFilterProxyModel, self).__init__()
+        super(QSortFilterProxyModel, self).__init__(*args, **kwargs)
+
+        self.setSortRole(SORTROLE)
 
     def only_favorites_changed(self, newval):
         self.ONLY_FAVORITES = newval
