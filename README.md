@@ -36,6 +36,6 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [ ] Sorting by date
 - [X] Select external tools from "tabs" rather than directly
 - [ ] Replace terminal printed lines with dialog? Status bar?
-- [ ] Dealing with duplicate children
+- [X] Dealing with duplicate children
 - [ ] Deployment into macOS (.app) standalone application
 - [ ] Multithreaded retrieval of data for "expand all" (back burner)

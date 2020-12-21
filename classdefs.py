@@ -95,6 +95,14 @@ class CanvasItem(QStandardItem):
     def auth_get(self, url):
         return self.obj._requester.request('GET', _url=url)
 
+    def __eq__(self, other):
+        return (self.obj.id == other.obj.id)
+
+    def append_dated_item(self, item):
+        children = [self.child(r, 0) for r in range(self.rowCount())]
+        if not item in children:
+            self.appendRow([item, item.date])
+
     def dblClickFcn(self):
         pass
 
@@ -162,25 +170,25 @@ class CanvasItem(QStandardItem):
                 file = self.course().safe_get_item('get_file', info['files'])
                 if file:
                     item = FileItem(object=file)
-                    self.appendRow([item, item.date])
+                    self.append_dated_item(item)
             for a in pages:
                 info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 page = self.course().safe_get_item('get_page', info['pages'])
                 if page:
                     item = PageItem(object=page)
-                    self.appendRow([item, item.date])
+                    self.append_dated_item(item)
             for a in quizzes:
                 info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
                 if quiz:
                     item = QuizItem(object=quiz)
-                    self.appendRow([item, item.date])
+                    self.append_dated_item(item)
             for a in assignments:
                 info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 assignment = self.course().safe_get_item('get_assignment', info['assignments'])
                 if assignment:
                     item = AssignmentItem(object=assignment)
-                    self.appendRow([item, item.date])
+                    self.append_dated_item(item)
             if not sum(links.values(), []):
                 if advance:
                     self.dblClickFcn() # no action for expand, send another click
@@ -234,6 +242,8 @@ class CourseItem(CanvasItem):
 
         self.content = kwargs.pop('content', 'files')
         self.downloadfolder = kwargs.pop('downloadfolder', DOWNLOADS)
+        self.isfavorite = kwargs.pop('favorite', False)
+
         super(CourseItem, self).__init__(*args, **kwargs)
 
         self.setIcon(QIcon('icons/book.png'))
@@ -249,10 +259,10 @@ class CourseItem(CanvasItem):
         ct = 0
         for m in self.obj.get_modules():
             item = ModuleItem(object=m)
-            self.appendRow([item, item.date])
+            self.append_dated_item(item)
             ct += 1
         if ct == 0:
-            self.setDisabled(True) # if module is empty
+            self.setEnabled(False) # if module is empty
 
     def get_root_folder(self):
         all_folders = self.obj.get_folders()
@@ -269,24 +279,24 @@ class CourseItem(CanvasItem):
         if len(files + folders) > 0:
             for file in files:
                 item = FileItem(object=file)
-                self.appendRow([item, item.date])
+                self.append_dated_item(item)
             
             for folder in folders:
                 item = FolderItem(object=folder)
-                self.appendRow([item, item.date])
+                self.append_dated_item(item)
         else:
-            self.setDisabled(True)
+            self.setEnabled(False)
 
     def get_assignments(self):
         for a in self.obj.get_assignments():
             item = AssignmentItem(object=a)
-            self.appendRow([item, item.date])
+            self.append_dated_item(item)
 
     def get_tools(self):
         tabs = [t for t in self.obj.get_tabs() if t.type == 'external']
         for t in tabs:
             item = TabItem(object=t)
-            self.appendRow([item, item.date])
+            self.append_dated_item(item)
 
     def safe_get_item(self, method, id):
         try:
@@ -357,33 +367,34 @@ class ModuleItem(CanvasItem):
                 file = self.course().safe_get_item('get_file', mi.content_id)
                 if file:
                     item = FileItem(object=file)
-                    self.appendRow([item, item.date])
+                    self.append_dated_item(item)
             elif mi.type == 'Page':
                 page = self.course().safe_get_item('get_page', mi.page_url)
                 if page:
                     item = PageItem(object=page)
-                    self.appendRow([item, item.date])
+                    self.append_dated_item(item)
             elif mi.type == 'Discussion':
                 disc = self.course().safe_get_item('get_discussion_topic', mi.content_id)
                 if disc:
                     item = DiscussionItem(object=disc)
-                    self.appendRow([item, item.date])
+                    self.append_dated_item(item)
             elif mi.type == 'Quiz':
                 quiz = self.course().safe_get_item('get_quiz', mi.content_id)
                 if quiz:
                     item = QuizItem(object=quiz)
-                    self.appendRow([item, item.date])
+                    self.append_dated_item(item)
             elif mi.type == 'Assignment':
                 assignment = self.course().safe_get_item('get_assignment', mi.content_id)
                 if assignment:
                     item = AssignmentItem(object=assignment)
-                    self.appendRow([item, item.date])
+                    self.append_dated_item(item)
             else:
                 print(repr(mi))
                 item = ModuleItemItem(object=mi)
-                self.appendRow([item, item.date])
+                self.append_dated_item(item)
+
         if len(items) == 0:
-            self.setDisabled(True)
+            self.setEnabled(False)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
@@ -419,11 +430,11 @@ class FolderItem(CanvasItem):
     def expand(self, **kwargs):
         for file in self.safe_get_files():
             item = FileItem(object=file)
-            self.appendRow([item, item.date])
+            self.append_dated_item(item)
 
         for folder in self.safe_get_folders():
             item = FolderItem(object=folder)
-            self.appendRow([item, item.date])
+            self.append_dated_item(item)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
@@ -604,6 +615,9 @@ class Date(QStandardItem):
         else:
             return ''
 
+    def __lt__(self, other):
+        return self.datetime.timestamp() < other.datetime.timestamp()
+
     def as_qdt(self):
         if self.datetime is not None:
             secs = self.datetime.timestamp() # seconds since epoch
@@ -611,6 +625,41 @@ class Date(QStandardItem):
         else:
             return None
 
+# ----------------------------------------------------------------------
+
+class CustomProxyModel(QSortFilterProxyModel):
+    """
+    this subclass implements filtering and sorting functions for the app
+    """
+
+    def __init__(self, only_favorites_initial):
+        self.ONLY_FAVORITES = only_favorites_initial
+
+        super(QSortFilterProxyModel, self).__init__()
+
+    def only_favorites_changed(self, newval):
+        self.ONLY_FAVORITES = newval
+        self.invalidateFilter() # signal that filtering param changed
+
+    def filtering_item(self, row, parentindex, column=0):
+        # tricky thing here is that "parentindex" correspondes 
+        # to (invalid) root item for top level items, and so
+        # we can't get the parent item via model->itemFromIndex
+        source = self.sourceModel()
+        # handle top level item case explicitly
+        if parentindex == source.invisibleRootItem().index():
+            parent = source.invisibleRootItem()
+        else:
+            parent = source.itemFromIndex(parentindex)
+
+        return parent.child(row, column)
+
+    def filterAcceptsRow(self, row, parentindex):
+        if not self.ONLY_FAVORITES:
+            return True # makes it easy
+        else:
+            item = self.filtering_item(row, parentindex)
+            return item.course().isfavorite
 
 class SliderHLayout(QHBoxLayout):
     """

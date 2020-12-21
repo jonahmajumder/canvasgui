@@ -10,7 +10,7 @@ from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 
 from guihelper import disp_html
-from classdefs import CourseItem, SeparatorItem, SliderHLayout
+from classdefs import CourseItem, SeparatorItem, SliderHLayout, CustomProxyModel
 from utils import Preferences
 from appcontrol import set_term_title
 from secrets import BASEURL, TOKEN
@@ -51,7 +51,6 @@ class CanvasApp(QMainWindow):
 
         self.connect_signals()
 
-        # self.tree.setSortingEnabled(True)
         # self.tree.sortByColumn(1, Qt.DescendingOrder) # most recent at top
 
         self.show()
@@ -64,13 +63,6 @@ class CanvasApp(QMainWindow):
 # -------------------- INITIALIZATION METHODS --------------------
 
     def addWidgets(self):
-
-        self.tree = QTreeView()
-        self.model = QStandardItemModel(0, 2, self)
-        self.model.setHorizontalHeaderLabels(['Course', 'Date Created'])
-        self.tree.setAlternatingRowColors(True)
-        self.tree.header().setSectionResizeMode(QHeaderView.Stretch)
-        self.tree.setModel(self.model)
 
         self.contentTypeComboBox = QComboBox()
         for ct in CourseItem.CONTENT_TYPES:
@@ -107,6 +99,17 @@ class CanvasApp(QMainWindow):
         self.controlLayout.setStretch(2, 1)
 
         self.mainLayout.addLayout(self.controlLayout)
+
+        self.tree = QTreeView()
+        self.model = QStandardItemModel(0, 2, self)
+        self.proxyModel = CustomProxyModel(self.favoriteSlider.value())
+        self.proxyModel.setSourceModel(self.model)
+        self.model.setHorizontalHeaderLabels(['Course', 'Date Created'])
+        self.tree.setAlternatingRowColors(True)
+        self.tree.header().setSectionResizeMode(QHeaderView.Stretch)
+        self.tree.setSortingEnabled(True)
+        self.tree.setModel(self.proxyModel)
+
         self.mainLayout.addWidget(self.tree)
 
         self.central = QWidget()
@@ -128,11 +131,12 @@ class CanvasApp(QMainWindow):
 
         self.expandButton.clicked.connect(self.expand_all)
         self.contentTypeComboBox.currentIndexChanged.connect(self.contentTypeChanged)
-        self.favoriteSlider.valueChanged.connect(self.favoriteSliderChanged)
+        self.favoriteSlider.valueChanged.connect(self.proxyModel.only_favorites_changed)
 
-    def tree_double_click(self, index):
-        item = self.model.itemFromIndex(index)
-        item.expand(contentTypeIndex=self.contentTypeComboBox.currentIndex())
+    def tree_double_click(self, proxyindex):
+        sourceindex = self.proxyModel.mapToSource(proxyindex)
+        item = self.model.itemFromIndex(sourceindex)
+        item.dblClickFcn(contentTypeIndex=self.contentTypeComboBox.currentIndex())
 
 # -------------------- FUNCTIONAL METHODS --------------------
 
@@ -144,28 +148,24 @@ class CanvasApp(QMainWindow):
         return favorites, others
 
     def add_courses(self):
-        onlyFavorites = self.favoriteSlider.value()
-
         favorites, others = self.get_courses_separated()
 
-        for course in favorites:
-            item = CourseItem(object=course, downloadfolder=self.preferences.current['downloadfolder'])
-            self.model.appendRow([item, item.date])
+        root = self.model.invisibleRootItem()
 
-        if not onlyFavorites:
-            # item = SeparatorItem(self.tree)
-            for course in others:
-                item = CourseItem(object=course, downloadfolder=self.preferences.current['downloadfolder'])
-                self.model.appendRow([item, item.date])
+        for course in favorites:
+            item = CourseItem(object=course, favorite=True,
+                downloadfolder=self.preferences.current['downloadfolder'])
+            root.appendRow([item, item.date])
+
+        for course in others:
+            item = CourseItem(object=course, favorite=False,
+                downloadfolder=self.preferences.current['downloadfolder'])
+            root.appendRow([item, item.date])
 
     def clear_courses(self):
         self.model.removeRows(0, self.model.rowCount())
 
     def contentTypeChanged(self):
-        self.clear_courses()
-        self.add_courses()
-
-    def favoriteSliderChanged(self, onlyFavorites):
         self.clear_courses()
         self.add_courses()
 
