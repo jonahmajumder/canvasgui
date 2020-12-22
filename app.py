@@ -107,10 +107,15 @@ class CanvasApp(QMainWindow):
         self.proxyModel.setSourceModel(self.model)
         self.model.setHorizontalHeaderLabels(['Course', 'Date Created'])
         self.tree.setAlternatingRowColors(True)
-        self.tree.header().setSectionResizeMode(QHeaderView.Stretch)
         self.tree.setSortingEnabled(True)
         self.tree.setModel(self.proxyModel)
         self.tree.header().setSortIndicator(1, Qt.DescendingOrder)
+        self.tree.setSelectionMode(QTreeView.ExtendedSelection)
+
+        self.tree.header().setSectionResizeMode(QHeaderView.Interactive)
+        w = self.tree.geometry().width()
+        self.tree.header().resizeSection(0, int(w*2/3))
+        self.tree.header().resizeSection(1, int(w/3))
 
         self.mainLayout.addWidget(self.tree)
 
@@ -136,9 +141,17 @@ class CanvasApp(QMainWindow):
         self.favoriteSlider.valueChanged.connect(self.proxyModel.only_favorites_changed)
 
     def tree_double_click(self, proxyindex):
-        sourceindex = self.proxyModel.mapToSource(proxyindex)
-        item = self.model.itemFromIndex(sourceindex)
-        item.dblClickFcn(contentTypeIndex=self.contentTypeComboBox.currentIndex())
+        # sourceindex = self.proxyModel.mapToSource(proxyindex)
+        for item in self.selected_canvasitems():
+            item.dblClickFcn(contentTypeIndex=self.contentTypeComboBox.currentIndex())
+
+    def selected_canvasitems(self):
+        proxyindexes = self.tree.selectedIndexes()
+        sourceindexes = [self.proxyModel.mapToSource(i) for i in proxyindexes]
+        items = [self.model.itemFromIndex(i) for i in sourceindexes]
+        canvasitems = [i for i in items if i.column() == 0]
+        return canvasitems
+
 
 # -------------------- FUNCTIONAL METHODS --------------------
 
@@ -171,16 +184,32 @@ class CanvasApp(QMainWindow):
         self.clear_courses()
         self.add_courses()
 
-    def expand_children(self, item):
-        for i in range(item.childCount()):
-            ch = item.child(i)
-            if hasattr(ch, 'expand'):
-                ch.dblClickFcn(advance=False)
-            expand_children(ch)
+    def expand_children(self, item, **kwargs):
+        show_expansion = kwargs.get('show', True)
+
+        item.expand()
+
+        if show_expansion:
+            proxyindex = self.proxyModel.mapFromSource(item.index())
+            self.tree.setExpanded(proxyindex, True)
+
+        for i in range(item.rowCount()):
+            ch = item.child(i, 0)
+            self.expand_children(ch)
 
     def expand_all(self):
         start_time = time()
-        self.expand_children(self.tree.invisibleRootItem())
+
+        selected = self.selected_canvasitems()
+
+        if len(selected) > 0:
+            to_expand = selected
+        else: # all top level items (i.e. courses)
+            to_expand = [self.model.child(i, 0) for i in range(self.model.invisibleRootItem().item.rowCount())]
+
+        for item in to_expand:
+            self.expand_children(item, show=True)
+
         print('Load time: {:.2f}'.format(time() - start_time))
 
     def generate_profile_html(self):

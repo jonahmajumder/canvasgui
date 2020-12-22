@@ -31,7 +31,7 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [ ] Context menus for everything but expand
 - [ ] Bulk download of files (module/folder level)
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
-- [ ] Better column resizing
+- [X] Better column resizing
 - [X] Convert from widget to model architecture
 - [X] Sorting by date
 - [X] Select external tools from "tabs" rather than directly

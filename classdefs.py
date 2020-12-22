@@ -39,37 +39,14 @@ class SeparatorItem(QStandardItem):
     def dblClickFcn(self):
         pass
 
-# class DoubleClickHandler():
-#     """
-#     parent class to handle double click activity (not intended to be instantiated alone)
-#     """
-#     def __init__(self):
-
-#         self.dblClicks = 0
-
-#         self.dblClickActions = []
-#         if hasattr(self, 'expand'):
-#             self.dblClickActions.append(self.expand)
-#         if hasattr(self, 'open'):
-#             self.dblClickActions.append(self.open)
-#         else:
-#             self.dblClickActions.append(lambda: None) # make last is not expand
-
-#     def dblClickFcn(self, **kwargs):
-#         nclicks = self.dblClicks
-#         self.dblClicks += 1
-#         if nclicks < len(self.dblClickActions) - 1:
-#             self.dblClickActions[nclicks](**kwargs) # execute function
-#         else:
-#             self.dblClickActions[-1](**kwargs) # execute last function repeatedly
-        
-#         # print('Double clicks: {}'.format(nclicks))
 
 class CanvasItem(QStandardItem):
     """
     general parent class for tree elements with corresponding canvasapi objects
     (not intended to be instantiated directly)
     """
+    CONTEXT_MENU_ACTIONS = []
+
     def __init__(self, *args, **kwargs):
         self.obj = kwargs.pop('object', None)
         super(CanvasItem, self).__init__(*args, **kwargs)
@@ -100,15 +77,24 @@ class CanvasItem(QStandardItem):
     def auth_get(self, url):
         return self.obj._requester.request('GET', _url=url)
 
+    def identifier(self):
+        if isinstance(self, PageItem):
+            return self.obj.page_id
+        else:
+            return self.obj.id
+
     def __eq__(self, other):
-        return (self.obj.id == other.obj.id)
+        return (self.identifier() == other.identifier())
 
     def append_dated_item(self, item):
         children = [self.child(r, 0) for r in range(self.rowCount())]
         if not item in children:
             self.appendRow([item, item.date])
 
-    def dblClickFcn(self):
+    def dblClickFcn(self, **kwargs):
+        pass
+
+    def expand(self, **kwargs):
         pass
 
     def course(self):
@@ -195,11 +181,9 @@ class CanvasItem(QStandardItem):
                     item = AssignmentItem(object=assignment)
                     self.append_dated_item(item)
             if not sum(links.values(), []):
-                if advance:
-                    self.dblClickFcn() # no action for expand, send another click
+                print('No links found.')
         else:
-            if advance:
-                self.dblClickFcn()
+            print('HTML is None.')
 
     def retrieve_sessionless_url(self):
         if hasattr(self.obj, 'url'):
@@ -321,9 +305,9 @@ class ExternalToolItem(CanvasItem):
         self.setIcon(QIcon('icons/link.png'))
 
     def dblClickFcn(self, **kwargs):
-        self.expand(**kwargs)
+        self.open(**kwargs)
 
-    def expand(self, **kwargs):
+    def open(self, **kwargs):
         if 'url' in self.obj.custom_fields:
             self.open_and_notify(self.obj.custom_fields['url'])
         else:
@@ -394,7 +378,7 @@ class ModuleItem(CanvasItem):
                     item = AssignmentItem(object=assignment)
                     self.append_dated_item(item)
             else:
-                print(repr(mi))
+                # print(repr(mi))
                 item = ModuleItemItem(object=mi)
                 self.append_dated_item(item)
 
@@ -444,6 +428,17 @@ class FolderItem(CanvasItem):
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
 
+    def download(self, **kwargs):
+        # expand all-- does that need to be a CanvasItem method?
+
+        # create folder in download location
+        # download all files into new folder
+        # call this function recursively on all folders
+        # (this function will need a param for folder)
+
+        pass
+
+
 class FileItem(CanvasItem):
     """
     class for tree elements with corresponding canvasapi "file" objects (within folders)
@@ -488,6 +483,9 @@ class PageItem(CanvasItem):
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.body, **kwargs)
+
+    def dblClickFcn(self, **kwargs):
+        self.expand(**kwargs)
 
     def open(self, **kwargs):
         if self.obj.body:
@@ -565,6 +563,8 @@ class Date(QStandardItem):
         super(Date, self).__init__(*args, **kwargs)
         self.datetime = self.datetime_from_obj()
 
+        self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+
         self.setData(self.as_qdt(), SORTROLE)
 
         self.setText(self.smart_formatted())
@@ -596,8 +596,7 @@ class Date(QStandardItem):
             else:
                 return None
         else:
-            print('No date found!')
-            print(repr(self.obj))
+            print('No date found for {}.'.format(str(self.obj)))
             return None
 
     def datetime_from_obj(self):

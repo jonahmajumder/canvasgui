@@ -8,7 +8,7 @@ from secrets import BASEURL, TOKEN
 
 canvas = Canvas(BASEURL, TOKEN)
 
-# favorites, others = canvas.get_current_user()
+u = canvas.get_current_user()
 
 
 
