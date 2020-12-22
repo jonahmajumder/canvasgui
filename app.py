@@ -176,11 +176,13 @@ class CanvasApp(QMainWindow):
 
         for course in favorites:
             item = CourseItem(object=course, favorite=True,
+                content=self.contentTypeComboBox.currentIndex(),
                 downloadfolder=self.preferences.current['downloadfolder'])
             root.appendRow([item, item.date])
 
         for course in others:
             item = CourseItem(object=course, favorite=False,
+                content=self.contentTypeComboBox.currentIndex(),
                 downloadfolder=self.preferences.current['downloadfolder'])
             root.appendRow([item, item.date])
 

@@ -29,6 +29,7 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [X] Make app into class (rather than script)
 - [X] Pereferences UI allowing specification of login credentials, download destination, default view
 - [X] Context menus for everything but expand
+- [X] Different course icons to indicate current content mode
 - [X] Folder (recursive) downloading
 - [ ] Module downloading
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)

@@ -234,10 +234,10 @@ class CourseItem(CanvasItem):
     class for tree elements with corresponding canvasapi "course" objects
     """
     CONTENT_TYPES = [
-        {'tag': 'modules', 'displayname': 'Modules'},
-        {'tag': 'files', 'displayname': 'Filesystem'},
-        {'tag': 'assignments', 'displayname': 'Assignments'},
-        {'tag': 'tools', 'displayname': 'External Tools'}
+        {'tag': 'modules', 'displayname': 'Modules', 'icon': 'icons/book_module.png'},
+        {'tag': 'files', 'displayname': 'Filesystem', 'icon': 'icons/book_folder.png'},
+        {'tag': 'assignments', 'displayname': 'Assignments', 'icon': 'icons/book_assignment.png'},
+        {'tag': 'tools', 'displayname': 'External Tools', 'icon': 'icons/book_link.png'}
     ]
 
     def __init__(self, *args, **kwargs):
@@ -248,7 +248,7 @@ class CourseItem(CanvasItem):
             self.get_tools
         ]
 
-        self.content = kwargs.pop('content', 'files')
+        self.content = kwargs.pop('content', 0)
         self.downloadfolder = kwargs.pop('downloadfolder', DOWNLOADS)
         self.isfavorite = kwargs.pop('favorite', False)
 
@@ -256,11 +256,10 @@ class CourseItem(CanvasItem):
 
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/book.png'))
+        self.setIcon(QIcon(self.CONTENT_TYPES[self.content]['icon']))
 
     def expand(self, **kwargs):
-        contentTypeIndex = kwargs.get('contentTypeIndex', 0)
-        self.expanders[contentTypeIndex]()
+        self.expanders[self.content]()
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
