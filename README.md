@@ -28,8 +28,9 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 
 - [X] Make app into class (rather than script)
 - [X] Pereferences UI allowing specification of login credentials, download destination, default view
-- [ ] Context menus for everything but expand
-- [ ] Bulk download of files (module/folder level)
+- [X] Context menus for everything but expand
+- [X] Folder (recursive) downloading
+- [ ] Module downloading
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
 - [X] Better column resizing
 - [X] Convert from widget to model architecture

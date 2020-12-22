@@ -136,6 +136,9 @@ class CanvasApp(QMainWindow):
     def connect_signals(self):
         self.tree.doubleClicked.connect(self.tree_double_click)
 
+        self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self.tree_right_click)
+
         self.expandButton.clicked.connect(self.expand_all)
         self.contentTypeComboBox.currentIndexChanged.connect(self.contentTypeChanged)
         self.favoriteSlider.valueChanged.connect(self.proxyModel.only_favorites_changed)
@@ -144,6 +147,10 @@ class CanvasApp(QMainWindow):
         # sourceindex = self.proxyModel.mapToSource(proxyindex)
         for item in self.selected_canvasitems():
             item.dblClickFcn(contentTypeIndex=self.contentTypeComboBox.currentIndex())
+
+    def tree_right_click(self, point):
+        for item in self.selected_canvasitems():
+            item.run_context_menu(self.tree.viewport().mapToGlobal(point))
 
     def selected_canvasitems(self):
         proxyindexes = self.tree.selectedIndexes()
@@ -184,18 +191,18 @@ class CanvasApp(QMainWindow):
         self.clear_courses()
         self.add_courses()
 
-    def expand_children(self, item, **kwargs):
-        show_expansion = kwargs.get('show', True)
+    # def expand_children(self, item, **kwargs):
+    #     show_expansion = kwargs.get('show', True)
 
-        item.expand()
+    #     item.expand()
 
-        if show_expansion:
-            proxyindex = self.proxyModel.mapFromSource(item.index())
-            self.tree.setExpanded(proxyindex, True)
+    #     if show_expansion:
+    #         proxyindex = self.proxyModel.mapFromSource(item.index())
+    #         self.tree.setExpanded(proxyindex, True)
 
-        for i in range(item.rowCount()):
-            ch = item.child(i, 0)
-            self.expand_children(ch)
+    #     for i in range(item.rowCount()):
+    #         ch = item.child(i, 0)
+    #         self.expand_children(ch)
 
     def expand_all(self):
         start_time = time()
@@ -208,7 +215,7 @@ class CanvasApp(QMainWindow):
             to_expand = [self.model.child(i, 0) for i in range(self.model.invisibleRootItem().item.rowCount())]
 
         for item in to_expand:
-            self.expand_children(item, show=True)
+            item.expand_recursive()
 
         print('Load time: {:.2f}'.format(time() - start_time))
 

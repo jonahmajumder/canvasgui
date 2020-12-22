@@ -45,7 +45,6 @@ class CanvasItem(QStandardItem):
     general parent class for tree elements with corresponding canvasapi objects
     (not intended to be instantiated directly)
     """
-    CONTEXT_MENU_ACTIONS = []
 
     def __init__(self, *args, **kwargs):
         self.obj = kwargs.pop('object', None)
@@ -69,6 +68,8 @@ class CanvasItem(QStandardItem):
         self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
         self.date = Date(item=self)
+
+        self.CONTEXT_MENU_ACTIONS = []
 
         # self.setText(1, format_date(self.created))
         # self.setText(1, self.date.smart_formatted())
@@ -97,6 +98,24 @@ class CanvasItem(QStandardItem):
     def expand(self, **kwargs):
         pass
 
+    def expand_recursive(self):
+        self.expand()
+        for ch in self.children():
+            ch.expand_recursive()
+
+    def children(self):
+        return [self.child(i, 0) for i in range(self.rowCount())]
+
+    def make_context_menu(self):
+        self.contextMenu = QMenu()
+        for d in self.CONTEXT_MENU_ACTIONS:
+            action = self.contextMenu.addAction(d['displayname'])
+            action.triggered.connect(d['function'])
+
+    def run_context_menu(self, point):
+        if len(self.contextMenu.actions()) > 0:
+            action = self.contextMenu.exec_(point)
+            
     def course(self):
         if self.parent() is None:
             return self
@@ -235,6 +254,8 @@ class CourseItem(CanvasItem):
 
         super(CourseItem, self).__init__(*args, **kwargs)
 
+        self.make_context_menu()
+
         self.setIcon(QIcon('icons/book.png'))
 
     def expand(self, **kwargs):
@@ -302,6 +323,11 @@ class ExternalToolItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(ExternalToolItem, self).__init__(*args, **kwargs)
 
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Open', 'function': self.open}
+        ])
+        self.make_context_menu()
+
         self.setIcon(QIcon('icons/link.png'))
 
     def dblClickFcn(self, **kwargs):
@@ -324,6 +350,10 @@ class TabItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(TabItem, self).__init__(*args, **kwargs)
 
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Open', 'function': self.open}
+        ])
+
         self.setIcon(QIcon('icons/link.png'))
 
     def open(self, **kwargs):
@@ -344,6 +374,8 @@ class ModuleItem(CanvasItem):
     """
     def __init__(self, *args, **kwargs):
         super(ModuleItem, self).__init__(*args, **kwargs)
+
+        self.make_context_menu()
 
         self.setIcon(QIcon('icons/module.png'))
 
@@ -396,6 +428,11 @@ class ModuleItemItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(ModuleItemItem, self).__init__(*args, **kwargs)
 
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Open', 'function': self.open}
+        ])
+        self.make_context_menu()
+
         self.setIcon(QIcon('icons/link.png'))
 
     def open(self, **kwargs):
@@ -414,6 +451,11 @@ class FolderItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(FolderItem, self).__init__(*args, **kwargs)
 
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Download Folder', 'function': self.download}
+        ])
+        self.make_context_menu()
+
         self.setIcon(QIcon('icons/folder.png'))
 
     def expand(self, **kwargs):
@@ -429,7 +471,21 @@ class FolderItem(CanvasItem):
         self.expand(**kwargs)
 
     def download(self, **kwargs):
-        # expand all-- does that need to be a CanvasItem method?
+        loc = kwargs.get('location', self.course().downloadfolder)
+        confirm = kwargs.get('confirm', True)
+
+        if confirm:
+            confirmed = confirm_dialog('Download contents of {}?'.format(self.name), title='Confirm Download')
+        else:
+            confirmed = True
+
+        folderpath = Path(loc) / self.name
+        folderpath.mkdir()
+
+        self.expand()
+
+        for ch in self.children():
+            ch.download(location=folderpath, confirm=False) # works for both files and folders!
 
         # create folder in download location
         # download all files into new folder
@@ -446,6 +502,11 @@ class FileItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(FileItem, self).__init__(*args, **kwargs)
 
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Download', 'function': self.download}
+        ])
+        self.make_context_menu()
+
         self.setIcon(QIcon('icons/file.png'))
 
     # this is a faster version of the CanvasAPI's download method (not sure why...)
@@ -454,20 +515,28 @@ class FileItem(CanvasItem):
         with open(filepath, 'wb') as fileobj:
             fileobj.write(r.content)
 
-    def download(self):
-        if confirm_dialog('Download {}?'.format(self.obj.filename), title='Confirm Download'):
+    def download(self, **kwargs):
+        loc = kwargs.get('location', self.course().downloadfolder)
+        confirm = kwargs.get('confirm', True)
+
+        if confirm:
+            confirmed = confirm_dialog('Download {}?'.format(self.obj.filename), title='Confirm Download')
+        else:
+            confirmed = True
+
+        if confirmed:
             filename = parse.unquote(self.obj.filename)
-            newpath = Path(self.course().downloadfolder) / filename # build local file Path obj
+            newpath = Path(loc) / filename # build local file Path obj
             if not newpath.exists():
                 self.save_data(str(newpath))
                 print('{} downloaded.'.format(filename))
             else:
                 print('{} already exists here; file not replaced.'.format(filename))
 
-        if newpath.suffix in CONVERTIBLE_EXTENSIONS:
-            if confirm_dialog('Convert {} to PDF?'.format(filename), title='Convert File'):
-                convert(newpath)
-                os.remove(newpath)
+            if newpath.suffix in CONVERTIBLE_EXTENSIONS:
+                if confirm_dialog('Convert {} to PDF?'.format(filename), title='Convert File'):
+                    convert(newpath)
+                    os.remove(newpath)
 
     def dblClickFcn(self, **kwargs):
         self.download()
@@ -479,6 +548,11 @@ class PageItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(PageItem, self).__init__(*args, **kwargs)
 
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Display HTML', 'function': self.display}
+        ])
+        self.make_context_menu()
+
         self.setIcon(QIcon('icons/html.png'))
 
     def expand(self, **kwargs):
@@ -487,9 +561,9 @@ class PageItem(CanvasItem):
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
 
-    def open(self, **kwargs):
+    def display(self, **kwargs):
         if self.obj.body:
-            disp_html(self.obj.body, title=self.text(0))
+            disp_html(self.obj.body, title=self.name)
         else:
             print('No content on page.')
 
@@ -499,6 +573,11 @@ class QuizItem(CanvasItem):
     """
     def __init__(self, *args, **kwargs):
         super(QuizItem, self).__init__(*args, **kwargs)
+
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Open', 'function': self.open}
+        ])
+        self.make_context_menu()
 
         self.setIcon(QIcon('icons/quiz.png'))
 
@@ -515,6 +594,11 @@ class DiscussionItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(DiscussionItem, self).__init__(*args, **kwargs)
 
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Display HTML', 'function': self.display}
+        ])
+        self.make_context_menu()
+
         self.setIcon(QIcon('icons/discussion.png'))
 
     def expand(self, **kwargs):
@@ -523,7 +607,7 @@ class DiscussionItem(CanvasItem):
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
 
-    def open(self, **kwargs):
+    def display(self, **kwargs):
         disp_html(self.obj.message, title=self.text(0))
 
 class AssignmentItem(CanvasItem):
@@ -532,6 +616,11 @@ class AssignmentItem(CanvasItem):
     """
     def __init__(self, *args, **kwargs):
         super(AssignmentItem, self).__init__(*args, **kwargs)
+
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Open', 'function': self.open}
+        ])
+        self.make_context_menu()
 
         self.setIcon(QIcon('icons/assignment.png'))
 
@@ -620,9 +709,6 @@ class Date(QStandardItem):
             return '{0} at {1}'.format(daystring, timestring)
         else:
             return ''
-
-    # def __lt__(self, other):
-    #     return self.datetime.timestamp() < other.datetime.timestamp()
 
     def as_qdt(self):
         if self.datetime is not None:
