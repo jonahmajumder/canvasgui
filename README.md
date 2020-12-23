@@ -32,6 +32,7 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [X] Different course icons to indicate current content mode
 - [X] Folder (recursive) downloading
 - [ ] Module downloading
+- [X] Announcement/discussion topic support
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
 - [X] Better column resizing
 - [X] Convert from widget to model architecture

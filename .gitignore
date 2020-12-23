@@ -1,0 +1,8 @@
+# secret files
+
+defaults.json
+secrets.py
+
+# other irrelevant stuff
+
+.DS_Store

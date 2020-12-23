@@ -71,10 +71,6 @@ class CanvasItem(QStandardItem):
 
         self.CONTEXT_MENU_ACTIONS = []
 
-        # self.setText(1, format_date(self.created))
-        # self.setText(1, self.date.smart_formatted())
-        # self.setData(1, Qt.InitialSortOrderRole, self.date.as_qdt())
-
     def auth_get(self, url):
         return self.obj._requester.request('GET', _url=url)
 
@@ -164,7 +160,7 @@ class CanvasItem(QStandardItem):
 
         if html is not None:
             links = self.get_html_links(html)
-            # print(self.text(0))
+            # print(self.text())
             # print('Link types: ' + str(list(links.keys())))
             # print('')
             files = links.get('File', [])
@@ -237,7 +233,9 @@ class CourseItem(CanvasItem):
         {'tag': 'modules', 'displayname': 'Modules', 'icon': 'icons/book_module.png'},
         {'tag': 'files', 'displayname': 'Filesystem', 'icon': 'icons/book_folder.png'},
         {'tag': 'assignments', 'displayname': 'Assignments', 'icon': 'icons/book_assignment.png'},
-        {'tag': 'tools', 'displayname': 'External Tools', 'icon': 'icons/book_link.png'}
+        {'tag': 'tools', 'displayname': 'External Tools', 'icon': 'icons/book_link.png'},
+        {'tag': 'announcements', 'displayname': 'Announcements', 'icon': 'icons/book_announcement.png'}
+
     ]
 
     def __init__(self, *args, **kwargs):
@@ -245,7 +243,8 @@ class CourseItem(CanvasItem):
             self.get_modules,
             self.get_filesystem,
             self.get_assignments,
-            self.get_tools
+            self.get_tools,
+            self.get_announcements
         ]
 
         self.content = kwargs.pop('content', 0)
@@ -297,15 +296,31 @@ class CourseItem(CanvasItem):
             self.setEnabled(False)
 
     def get_assignments(self):
-        for a in self.obj.get_assignments():
-            item = AssignmentItem(object=a)
-            self.append_dated_item(item)
+        assignments = self.obj.get_assignments()
+        if len(list(assignments)) > 0:
+            for a in assignments:
+                item = AssignmentItem(object=a)
+                self.append_dated_item(item)
+        else:
+            self.setEnabled(False)
 
     def get_tools(self):
         tabs = [t for t in self.obj.get_tabs() if t.type == 'external']
-        for t in tabs:
-            item = TabItem(object=t)
-            self.append_dated_item(item)
+        if len(tabs) > 0:
+            for t in tabs:
+                item = TabItem(object=t)
+                self.append_dated_item(item)
+        else:
+            self.setEnabled(False)
+
+    def get_announcements(self):
+        announcements = self.obj.get_discussion_topics(only_announcements=True)
+        if len(list(announcements)) > 0:
+            for a in announcements:
+                item = AnnouncementItem(object=a)
+                self.append_dated_item(item)
+        else:
+            self.setEnabled(False)
 
     def safe_get_item(self, method, id):
         try:
@@ -589,9 +604,12 @@ class QuizItem(CanvasItem):
 class DiscussionItem(CanvasItem):
     """
     class for tree elements with corresponding canvasapi "discussiontopic" objects
+    meant for "discussion" type items (discussion_type: threaded)
     """
     def __init__(self, *args, **kwargs):
         super(DiscussionItem, self).__init__(*args, **kwargs)
+
+        assert self.obj.discussion_type == 'threaded'
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Display HTML', 'function': self.display}
@@ -607,7 +625,33 @@ class DiscussionItem(CanvasItem):
         self.expand(**kwargs)
 
     def display(self, **kwargs):
-        disp_html(self.obj.message, title=self.text(0))
+        disp_html(self.obj.message, title=self.text())
+
+class AnnouncementItem(CanvasItem):
+    """
+    class for tree elements with corresponding canvasapi "discussiontopic" objects
+    meant for "discussion" type items (discussion_type: side_comment)
+    """
+    def __init__(self, *args, **kwargs):
+        super(AnnouncementItem, self).__init__(*args, **kwargs)
+
+        assert self.obj.discussion_type == 'side_comment'
+
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Expand Embedded Links', 'function': self.expand}
+        ])
+        self.make_context_menu()
+
+        self.setIcon(QIcon('icons/announcement.png'))
+
+    def expand(self, **kwargs):
+        self.children_from_html(self.obj.message, **kwargs)
+
+    def dblClickFcn(self, **kwargs):
+        self.display(**kwargs)
+
+    def display(self, **kwargs):
+        disp_html(self.obj.message, title=self.text())
 
 class AssignmentItem(CanvasItem):
     """
