@@ -23,6 +23,7 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [PyQt5](https://pypi.org/project/PyQt5/)
 - [CanvasAPI](https://pypi.org/project/canvasapi/)
 - [dateutil](https://pypi.org/project/python-dateutil/)
+- [BeautifulSoup](https://pypi.org/project/beautifulsoup4/)
 
 ### To do list:
 

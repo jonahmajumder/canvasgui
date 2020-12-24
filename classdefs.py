@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup
 from urllib import parse
 
 from canvasapi import Canvas
-from canvasapi.exceptions import Unauthorized
+from canvasapi.exceptions import Unauthorized, ResourceDoesNotExist
 from appcontrol import convert, CONVERTIBLE_EXTENSIONS
 from guihelper import disp_html, confirm_dialog
 
@@ -38,7 +38,6 @@ class SeparatorItem(QStandardItem):
 
     def dblClickFcn(self):
         pass
-
 
 class CanvasItem(QStandardItem):
     """
@@ -83,15 +82,21 @@ class CanvasItem(QStandardItem):
     def __eq__(self, other):
         return (self.identifier() == other.identifier())
 
-    def append_dated_item(self, item):
+    def append_item_row(self, item):
         children = [self.child(r, 0) for r in range(self.rowCount())]
         if not item in children:
-            self.appendRow([item, item.date])
+            row = []
+            row.append(item)
+            row.append(item.date)
+            self.appendRow(row)
 
     def dblClickFcn(self, **kwargs):
         pass
 
     def expand(self, **kwargs):
+        pass
+
+    def download(self, **kwargs):
         pass
 
     def expand_recursive(self):
@@ -176,25 +181,25 @@ class CanvasItem(QStandardItem):
                 file = self.course().safe_get_item('get_file', info['files'])
                 if file:
                     item = FileItem(object=file)
-                    self.append_dated_item(item)
+                    self.append_item_row(item)
             for a in pages:
                 info = self.parse_api_url(a.attrs['data-api-endpoint'])
-                page = self.course().safe_get_item('get_page', info['pages'])
+                page = self.course().safe_get_item('get_page', parse.unquote(info['pages']))
                 if page:
                     item = PageItem(object=page)
-                    self.append_dated_item(item)
+                    self.append_item_row(item)
             for a in quizzes:
                 info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 quiz = self.course().safe_get_item('get_quiz', info['quizzes'])
                 if quiz:
                     item = QuizItem(object=quiz)
-                    self.append_dated_item(item)
+                    self.append_item_row(item)
             for a in assignments:
                 info = self.parse_api_url(a.attrs['data-api-endpoint'])
                 assignment = self.course().safe_get_item('get_assignment', info['assignments'])
                 if assignment:
                     item = AssignmentItem(object=assignment)
-                    self.append_dated_item(item)
+                    self.append_item_row(item)
             if not sum(links.values(), []):
                 print('No links found.')
         else:
@@ -267,7 +272,7 @@ class CourseItem(CanvasItem):
         ct = 0
         for m in self.obj.get_modules():
             item = ModuleItem(object=m)
-            self.append_dated_item(item)
+            self.append_item_row(item)
             ct += 1
         if ct == 0:
             self.setEnabled(False) # if module is empty
@@ -287,11 +292,11 @@ class CourseItem(CanvasItem):
         if len(files + folders) > 0:
             for file in files:
                 item = FileItem(object=file)
-                self.append_dated_item(item)
+                self.append_item_row(item)
             
             for folder in folders:
                 item = FolderItem(object=folder)
-                self.append_dated_item(item)
+                self.append_item_row(item)
         else:
             self.setEnabled(False)
 
@@ -300,7 +305,7 @@ class CourseItem(CanvasItem):
         if len(list(assignments)) > 0:
             for a in assignments:
                 item = AssignmentItem(object=a)
-                self.append_dated_item(item)
+                self.append_item_row(item)
         else:
             self.setEnabled(False)
 
@@ -309,7 +314,7 @@ class CourseItem(CanvasItem):
         if len(tabs) > 0:
             for t in tabs:
                 item = TabItem(object=t)
-                self.append_dated_item(item)
+                self.append_item_row(item)
         else:
             self.setEnabled(False)
 
@@ -318,7 +323,7 @@ class CourseItem(CanvasItem):
         if len(list(announcements)) > 0:
             for a in announcements:
                 item = AnnouncementItem(object=a)
-                self.append_dated_item(item)
+                self.append_item_row(item)
         else:
             self.setEnabled(False)
 
@@ -327,6 +332,9 @@ class CourseItem(CanvasItem):
             return getattr(self.obj, method)(id)
         except Unauthorized:
             print('Unauthorized!')
+            return None
+        except ResourceDoesNotExist:
+            print('Resource "{0}" (via "{1}") not found for course "{2}".'.format(id, method, self.name))
             return None
 
 class ExternalToolItem(CanvasItem):
@@ -389,6 +397,9 @@ class ModuleItem(CanvasItem):
     def __init__(self, *args, **kwargs):
         super(ModuleItem, self).__init__(*args, **kwargs)
 
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Download Module', 'function': self.download}
+        ])
         self.make_context_menu()
 
         self.setIcon(QIcon('icons/module.png'))
@@ -402,37 +413,56 @@ class ModuleItem(CanvasItem):
                 file = self.course().safe_get_item('get_file', mi.content_id)
                 if file:
                     item = FileItem(object=file)
-                    self.append_dated_item(item)
+                    self.append_item_row(item)
             elif mi.type == 'Page':
                 page = self.course().safe_get_item('get_page', mi.page_url)
                 if page:
                     item = PageItem(object=page)
-                    self.append_dated_item(item)
+                    self.append_item_row(item)
             elif mi.type == 'Discussion':
                 disc = self.course().safe_get_item('get_discussion_topic', mi.content_id)
                 if disc:
                     item = DiscussionItem(object=disc)
-                    self.append_dated_item(item)
+                    self.append_item_row(item)
             elif mi.type == 'Quiz':
                 quiz = self.course().safe_get_item('get_quiz', mi.content_id)
                 if quiz:
                     item = QuizItem(object=quiz)
-                    self.append_dated_item(item)
+                    self.append_item_row(item)
             elif mi.type == 'Assignment':
                 assignment = self.course().safe_get_item('get_assignment', mi.content_id)
                 if assignment:
                     item = AssignmentItem(object=assignment)
-                    self.append_dated_item(item)
+                    self.append_item_row(item)
             else:
-                # print(repr(mi))
+                print(repr(mi))
                 item = ModuleItemItem(object=mi)
-                self.append_dated_item(item)
+                self.append_item_row(item)
 
         if len(items) == 0:
             self.setEnabled(False)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
+
+    def download(self, **kwargs):
+        loc = kwargs.get('location', self.course().downloadfolder)
+        confirm = kwargs.get('confirm', True)
+
+        if confirm:
+            confirmed = confirm_dialog('Download contents of {}?'.format(self.name), title='Confirm Download')
+        else:
+            confirmed = True
+
+        folderpath = Path(loc) / self.name
+
+        if folderpath.exists():
+            print('Folder {} already exists here; module not downloaded.'.format(self.name))
+        else:
+            folderpath.mkdir()
+            self.expand()
+            for ch in self.children():
+                ch.download(location=folderpath, confirm=False) # works for both files and folders!
 
 class ModuleItemItem(CanvasItem):
     """
@@ -475,11 +505,11 @@ class FolderItem(CanvasItem):
     def expand(self, **kwargs):
         for file in self.safe_get_files():
             item = FileItem(object=file)
-            self.append_dated_item(item)
+            self.append_item_row(item)
 
         for folder in self.safe_get_folders():
             item = FolderItem(object=folder)
-            self.append_dated_item(item)
+            self.append_item_row(item)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
@@ -494,20 +524,14 @@ class FolderItem(CanvasItem):
             confirmed = True
 
         folderpath = Path(loc) / self.name
-        folderpath.mkdir()
 
-        self.expand()
-
-        for ch in self.children():
-            ch.download(location=folderpath, confirm=False) # works for both files and folders!
-
-        # create folder in download location
-        # download all files into new folder
-        # call this function recursively on all folders
-        # (this function will need a param for folder)
-
-        pass
-
+        if folderpath.exists():
+            print('Folder {} already exists here; not downloaded.'.format(self.name))
+        else:
+            folderpath.mkdir()
+            self.expand()
+            for ch in self.children():
+                ch.download(location=folderpath, confirm=False) # works for both files and folders!
 
 class FileItem(CanvasItem):
     """
@@ -769,6 +793,8 @@ class CustomProxyModel(QSortFilterProxyModel):
 
     def __init__(self, *args, **kwargs):
         self.ONLY_FAVORITES = kwargs.pop('favorites_initial', True)
+        self.terms = kwargs.pop('terms', [])
+        self.VISIBLE_TERMS = self.terms # initially all
 
         super(QSortFilterProxyModel, self).__init__(*args, **kwargs)
 
@@ -777,6 +803,11 @@ class CustomProxyModel(QSortFilterProxyModel):
     def only_favorites_changed(self, newval):
         self.ONLY_FAVORITES = newval
         self.invalidateFilter() # signal that filtering param changed
+
+    def terms_changed(self, bool_vals):
+        self.VISIBLE_TERMS = [t for (t,b) in zip(self.terms, bool_vals) if b]
+        # [print(t) for t in self.VISIBLE_TERMS]
+        self.invalidateFilter()
 
     def filtering_item(self, row, parentindex, column=0):
         # tricky thing here is that "parentindex" correspondes 
@@ -792,11 +823,19 @@ class CustomProxyModel(QSortFilterProxyModel):
         return parent.child(row, column)
 
     def filterAcceptsRow(self, row, parentindex):
+        item = self.filtering_item(row, parentindex)
+
         if not self.ONLY_FAVORITES:
-            return True # makes it easy
+            favorite_accept = True # makes it easy
         else:
-            item = self.filtering_item(row, parentindex)
-            return item.course().isfavorite
+            favorite_accept = item.course().isfavorite
+
+        if item.obj.term in self.VISIBLE_TERMS:
+            term_accept = True
+        else:
+            term_accept = False
+
+        return favorite_accept and term_accept
 
 class SliderHLayout(QHBoxLayout):
     """
@@ -860,6 +899,48 @@ class SliderHLayout(QHBoxLayout):
         self.valueChanged.emit(bool(int))
 
 
+class CheckableComboBox(QComboBox):
+    """
+    subclass of QComboBox with checkable options
+    """
+    selectionsChanged = pyqtSignal(list)
+
+    def __init__(self, *args, **kwargs):
+
+        listargs = list(args)
+        self.title = listargs.pop(0)
+        args = tuple(listargs)
+
+        super(CheckableComboBox, self).__init__(*args, **kwargs)
+
+        self.model = QStandardItemModel()
+
+        self.titleitem = QStandardItem(self.title)
+        self.titleitem.setData(Qt.Unchecked, Qt.CheckStateRole)
+        self.titleitem.setFlags(Qt.NoItemFlags) # set disabled
+        self.model.appendRow(self.titleitem)
+
+        self.model.itemChanged.connect(self.selectionChangedFcn)
+
+        self.setModel(self.model)
+        self.setCurrentIndex(0)
 
 
+    def addItem(self, text, checked=False):
+        newitem =  QStandardItem(text)
+        newitem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+        if checked:
+            newitem.setData(Qt.Checked, Qt.CheckStateRole)
+        else:
+            newitem.setData(Qt.Unchecked, Qt.CheckStateRole)
+        self.model.appendRow(newitem)
+
+    def children(self):
+        return [self.model.item(i,0) for i in range(1, self.model.rowCount())]
+
+    def selectionChangedFcn(self, item):
+        checkstates = [item.data(Qt.CheckStateRole) for item in self.children()]
+        ischecked = [state == Qt.Checked for state in checkstates]
+
+        self.selectionsChanged.emit(ischecked)
 

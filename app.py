@@ -10,7 +10,8 @@ from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 
 from guihelper import disp_html
-from classdefs import CourseItem, SeparatorItem, SliderHLayout, CustomProxyModel, SORTROLE
+from classdefs import CourseItem, SeparatorItem, CustomProxyModel, SORTROLE
+from classdefs import SliderHLayout, CheckableComboBox
 from utils import Preferences
 from appcontrol import set_term_title
 from secrets import BASEURL, TOKEN
@@ -42,6 +43,7 @@ class CanvasApp(QMainWindow):
             self.preferences.current['token']
         )
         self.user = self.canvas.get_current_user()
+        self.terms = self.unique_terms()
 
         self.addWidgets()
 
@@ -77,8 +79,6 @@ class CanvasApp(QMainWindow):
         self.contentTypeLayout.setStretch(1, 2)
         self.contentTypeLayout.setStretch(2, 1)
 
-        self.favoriteSlider = SliderHLayout('All Courses', 'Favorites', startVal=True)
-
         self.expandButton = QPushButton('Expand All')
 
         self.expandLayout = QHBoxLayout()
@@ -93,17 +93,46 @@ class CanvasApp(QMainWindow):
 
         self.controlLayout = QHBoxLayout()
         self.controlLayout.addLayout(self.contentTypeLayout)
-        self.controlLayout.addLayout(self.favoriteSlider)
         self.controlLayout.addLayout(self.expandLayout)
         self.controlLayout.setStretch(0, 1)
         self.controlLayout.setStretch(1, 1)
-        self.controlLayout.setStretch(2, 1)
+        self.controlGroup = QGroupBox()
+        self.controlGroup.setTitle('Application Settings')
+        self.controlGroup.setLayout(self.controlLayout)
 
-        self.mainLayout.addLayout(self.controlLayout)
+        self.favoriteSlider = SliderHLayout('All Courses', 'Favorites', startVal=True)
+
+        self.termComboBox = CheckableComboBox('Select Semester(s)')
+        for t in self.terms:
+            self.termComboBox.addItem(t['name'], True)
+
+        self.termLayout = QHBoxLayout()
+        self.termLayout.addItem(QSpacerItem(20,40))
+        self.termLayout.addWidget(self.termComboBox)
+        self.termLayout.addItem(QSpacerItem(20,40))
+        self.termLayout.setStretch(0, 1)
+        self.termLayout.setStretch(1, 2)
+        self.termLayout.setStretch(2, 1)
+
+        self.filterLayout = QHBoxLayout()
+        self.filterLayout.addLayout(self.favoriteSlider)
+        self.filterLayout.addLayout(self.termLayout)
+
+        self.filterLayout.setStretch(0, 1)
+        self.filterLayout.setStretch(1, 1)
+        self.filterGroup = QGroupBox()
+        self.filterGroup.setTitle('Course Filters')
+        self.filterGroup.setLayout(self.filterLayout)
+
+        self.mainLayout.addWidget(self.controlGroup)
+        self.mainLayout.addWidget(self.filterGroup)
 
         self.tree = QTreeView()
         self.model = QStandardItemModel(0, 2, self)
-        self.proxyModel = CustomProxyModel(self.model, favorites_initial=self.favoriteSlider.value())
+        self.proxyModel = CustomProxyModel(self.model,
+            favorites_initial=self.favoriteSlider.value(),
+            terms=self.terms
+            )
         self.proxyModel.setSourceModel(self.model)
         self.model.setHorizontalHeaderLabels(['Course', 'Date Created'])
         self.tree.setAlternatingRowColors(True)
@@ -142,6 +171,7 @@ class CanvasApp(QMainWindow):
         self.expandButton.clicked.connect(self.expand_all)
         self.contentTypeComboBox.currentIndexChanged.connect(self.contentTypeChanged)
         self.favoriteSlider.valueChanged.connect(self.proxyModel.only_favorites_changed)
+        self.termComboBox.selectionsChanged.connect(self.proxyModel.terms_changed)
 
     def tree_double_click(self, proxyindex):
         # sourceindex = self.proxyModel.mapToSource(proxyindex)
@@ -162,10 +192,20 @@ class CanvasApp(QMainWindow):
 
 # -------------------- FUNCTIONAL METHODS --------------------
 
+    def unique_terms(self):
+        all_terms = [c.term for c in self.canvas.get_courses(include='term')]
+        unique_terms = []
+        for t in all_terms:
+            if t not in unique_terms:
+                unique_terms.append(t)
+        unique_terms.sort(key=lambda t: t['id'], reverse=True)
+        # unique_terms[-1]['name'] = 'No Term'
+        return unique_terms
+
     def get_courses_separated(self):
-        favorites = self.user.get_favorite_courses()
+        favorites = self.user.get_favorite_courses(include='term')
         favorite_ids = [c.id for c in favorites]
-        all_courses = list(self.user.get_courses())
+        all_courses = list(self.user.get_courses(include='term'))
         others = [c for c in all_courses if c.id not in favorite_ids]
         return favorites, others
 
@@ -192,19 +232,6 @@ class CanvasApp(QMainWindow):
     def contentTypeChanged(self):
         self.clear_courses()
         self.add_courses()
-
-    # def expand_children(self, item, **kwargs):
-    #     show_expansion = kwargs.get('show', True)
-
-    #     item.expand()
-
-    #     if show_expansion:
-    #         proxyindex = self.proxyModel.mapFromSource(item.index())
-    #         self.tree.setExpanded(proxyindex, True)
-
-    #     for i in range(item.rowCount()):
-    #         ch = item.child(i, 0)
-    #         self.expand_children(ch)
 
     def expand_all(self):
         start_time = time()
