@@ -792,6 +792,7 @@ class CustomProxyModel(QSortFilterProxyModel):
     """
 
     def __init__(self, *args, **kwargs):
+        # set defaults
         self.ONLY_FAVORITES = kwargs.pop('favorites_initial', True)
         self.terms = kwargs.pop('terms', [])
         self.VISIBLE_TERMS = self.terms # initially all
@@ -830,7 +831,7 @@ class CustomProxyModel(QSortFilterProxyModel):
         else:
             favorite_accept = item.course().isfavorite
 
-        if item.obj.term in self.VISIBLE_TERMS:
+        if item.course().obj.term in self.VISIBLE_TERMS:
             term_accept = True
         else:
             term_accept = False
@@ -913,10 +914,13 @@ class CheckableComboBox(QComboBox):
 
         super(CheckableComboBox, self).__init__(*args, **kwargs)
 
+        self.setItemDelegate(CustomStyledItemDelegate(self))
+
         self.model = QStandardItemModel()
 
-        self.titleitem = QStandardItem(self.title)
-        self.titleitem.setData(Qt.Unchecked, Qt.CheckStateRole)
+        self.titleitem = QStandardItem()
+        self.titleitem.setText(self.title)
+        self.titleitem.setTextAlignment(Qt.AlignHCenter)
         self.titleitem.setFlags(Qt.NoItemFlags) # set disabled
         self.model.appendRow(self.titleitem)
 
@@ -943,4 +947,20 @@ class CheckableComboBox(QComboBox):
         ischecked = [state == Qt.Checked for state in checkstates]
 
         self.selectionsChanged.emit(ischecked)
+
+class CustomStyledItemDelegate(QStyledItemDelegate):
+    """
+    Fixes issue with macOS checkbox in qcombobox styling
+    """
+    def __init__(self, *args, **kwargs):
+        super(CustomStyledItemDelegate, self).__init__(*args, **kwargs)
+
+    """
+    signature: paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) 
+    """
+    def paint(self, painter, option, index):
+        option = QStyleOptionViewItem(option) # cast?
+        option.showDecorationSelected = False
+        super(CustomStyledItemDelegate, self).paint(painter, option, index)
+
 
