@@ -22,6 +22,8 @@ from guihelper import disp_html, confirm_dialog
 
 DOWNLOADS = Path.home() / 'Downloads'
 
+assert DOWNLOADS.exists()
+
 SORTROLE = 256
 
 class SeparatorItem(QStandardItem):
@@ -925,14 +927,21 @@ class CheckableComboBox(QComboBox):
         self.model.appendRow(self.titleitem)
 
         self.model.itemChanged.connect(self.selectionChangedFcn)
+        self.currentIndexChanged.connect(self.itemSelected)
 
         self.setModel(self.model)
         self.setCurrentIndex(0)
 
+        # remove selection coloring so user doesn't see
+        self.setStyleSheet("""
+            selection-background-color: rgba(0, 0, 0, 0%);
+            selection-color: rgb(0, 0, 0);
+        """)
+
 
     def addItem(self, text, checked=False):
-        newitem =  QStandardItem(text)
-        newitem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+        newitem = QStandardItem(text)
+        newitem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsSelectable)
         if checked:
             newitem.setData(Qt.Checked, Qt.CheckStateRole)
         else:
@@ -942,11 +951,30 @@ class CheckableComboBox(QComboBox):
     def children(self):
         return [self.model.item(i,0) for i in range(1, self.model.rowCount())]
 
-    def selectionChangedFcn(self, item):
-        checkstates = [item.data(Qt.CheckStateRole) for item in self.children()]
-        ischecked = [state == Qt.Checked for state in checkstates]
+    def strings(self):
+        return [self.model.item(i,0).text() for i in range(1, self.model.rowCount())]
 
-        self.selectionsChanged.emit(ischecked)
+    def checked(self):
+        checkstates = [item.data(Qt.CheckStateRole) for item in self.children()]
+        return [state == Qt.Checked for state in checkstates]
+
+    def checkedList(self):
+        ischecked = self.checked()
+        return os.linesep.join([s for (s,b) in zip(self.strings(), self.checked()) if b])
+
+    def selectionChangedFcn(self, item):
+        self.selectionsChanged.emit(self.checked())
+
+    def toggleItem(self, item):
+        item.setData(
+            Qt.Unchecked if item.data(Qt.CheckStateRole) == Qt.Checked else Qt.Checked,
+            Qt.CheckStateRole
+        )
+
+    def itemSelected(self, idx):
+        if idx > 0:
+            self.toggleItem(self.model.item(idx,0))
+            self.setCurrentIndex(0)
 
 class CustomStyledItemDelegate(QStyledItemDelegate):
     """

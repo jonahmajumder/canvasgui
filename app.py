@@ -117,15 +117,12 @@ class CanvasApp(QMainWindow):
         self.filterLayout = QHBoxLayout()
         self.filterLayout.addLayout(self.favoriteSlider)
         self.filterLayout.addLayout(self.termLayout)
-
         self.filterLayout.setStretch(0, 1)
         self.filterLayout.setStretch(1, 1)
-        self.filterGroup = QGroupBox()
-        self.filterGroup.setTitle('Course Filters')
-        self.filterGroup.setLayout(self.filterLayout)
 
-        self.mainLayout.addWidget(self.controlGroup)
-        self.mainLayout.addWidget(self.filterGroup)
+        # this is the layout that holds course filters and course treeview
+        self.courseLayout = QVBoxLayout()
+        self.courseLayout.addLayout(self.filterLayout)
 
         self.tree = QTreeView()
         self.model = QStandardItemModel(0, 2, self)
@@ -146,7 +143,14 @@ class CanvasApp(QMainWindow):
         self.tree.header().resizeSection(0, int(w*2/3))
         self.tree.header().resizeSection(1, int(w/3))
 
-        self.mainLayout.addWidget(self.tree)
+        self.courseLayout.addWidget(self.tree)
+
+        self.mainGroup = QGroupBox()
+        self.mainGroup.setTitle('Courses')
+        self.mainGroup.setLayout(self.courseLayout)
+
+        self.mainLayout.addWidget(self.controlGroup)
+        self.mainLayout.addWidget(self.mainGroup)
 
         self.central = QWidget()
         self.central.setLayout(self.mainLayout)
