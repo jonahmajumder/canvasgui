@@ -17,8 +17,8 @@ The preferences file must be called "defaults.json" with the following keys:
 ```
 If any of these are deemed invalid (or no file is detected), a GUI will prompt the user to fill them in.
 
-### Nonstandard Dependencies
-(All available on PyPI)
+### Nonstandard (Direct) Dependencies
+(All available on PyPI. See requirements.txt for full list.)
 
 - [PyQt5](https://pypi.org/project/PyQt5/)
 - [CanvasAPI](https://pypi.org/project/canvasapi/)
@@ -43,4 +43,5 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [ ] Replace terminal printed lines with dialog? Status bar?
 - [X] Dealing with duplicate children
 - [ ] Deployment into macOS (.app) standalone application
+- [ ] Application-level error handling?
 - [ ] Multithreaded retrieval of data for "expand all" (back burner)

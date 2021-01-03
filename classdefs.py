@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 from urllib import parse
 
 from canvasapi import Canvas
+from canvasapi.favorite import Favorite
 from canvasapi.exceptions import Unauthorized, ResourceDoesNotExist
 from appcontrol import convert, CONVERTIBLE_EXTENSIONS
 from guihelper import disp_html, confirm_dialog
@@ -254,15 +255,48 @@ class CourseItem(CanvasItem):
             self.get_announcements
         ]
 
-        self.content = kwargs.pop('content', 0)
-        self.downloadfolder = kwargs.pop('downloadfolder', DOWNLOADS)
-        self.isfavorite = kwargs.pop('favorite', False)
+        self.gui = kwargs.pop('gui')
+
+        self.content = self.gui.contentTypeComboBox.currentIndex()
+        self.downloadfolder = self.gui.preferences.current['downloadfolder']
 
         super(CourseItem, self).__init__(*args, **kwargs)
+
+        self.init_from_obj()
+
+    def refresh(self):
+        newobj = self.gui.canvas.get_course(self.obj.id, include=['term', 'favorites'])
+        self.obj = newobj
+        self.init_from_obj()
+        self.gui.proxyModel.invalidateFilter()
+
+    def init_from_obj(self):
+        self.CONTEXT_MENU_ACTIONS = []
+        if self.obj.is_favorite:
+            self.favoriteobj = Favorite(self.obj._requester, {'context_id': self.obj.id, 'context_type': 'course'})
+            self.CONTEXT_MENU_ACTIONS.extend([
+                {'displayname': 'Remove Favorite', 'function': self.remove_favorite}
+            ])
+        else:
+            self.favoriteobj = None
+            self.CONTEXT_MENU_ACTIONS.extend([
+                {'displayname': 'Add Favorite', 'function': self.add_favorite}
+            ])
 
         self.make_context_menu()
 
         self.setIcon(QIcon(self.CONTENT_TYPES[self.content]['icon']))
+
+    def add_favorite(self):
+        self.favoriteobj = self.gui.user.add_favorite_course(self.obj.id)
+        self.refresh()
+
+    def remove_favorite(self):
+        # this is necessary due to bug
+        self.favoriteobj.context_type = 'course'
+
+        self.favoroteobj = self.favoriteobj.remove()
+        self.refresh()
 
     def expand(self, **kwargs):
         self.expanders[self.content]()
@@ -663,12 +697,48 @@ class AnnouncementItem(CanvasItem):
 
         assert self.obj.discussion_type == 'side_comment'
 
+        self.init_from_obj()
+
+    def init_from_obj(self):
+
+        if self.obj.read_state == 'read':
+            self.is_read = True
+        elif self.obj.read_state == 'unread':
+            self.is_read = False
+        else:
+            raise ValueError('Unrecognized "read_state" attribute!')
+
+        self.CONTEXT_MENU_ACTIONS = []
+
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Expand Embedded Links', 'function': self.expand}
         ])
+
+        if self.is_read:
+            self.CONTEXT_MENU_ACTIONS.extend([
+                {'displayname': 'Mark as Unread', 'function': self.mark_unread}
+            ])
+            self.setIcon(QIcon('icons/announcement.png'))
+        else:
+            self.CONTEXT_MENU_ACTIONS.extend([
+                {'displayname': 'Mark as Read', 'function': self.mark_read}
+            ])
+            self.setIcon(QIcon('icons/announcement_unread_blue.png'))
+
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/announcement.png'))
+    def refresh(self):
+        newobj = self.course().obj.get_discussion_topic(self.obj)
+        self.obj = newobj
+        self.init_from_obj()
+
+    def mark_read(self):
+        self.obj.mark_as_read()
+        self.refresh()
+
+    def mark_unread(self):
+        self.obj.mark_as_unread()
+        self.refresh()
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.message, **kwargs)
@@ -678,6 +748,7 @@ class AnnouncementItem(CanvasItem):
 
     def display(self, **kwargs):
         disp_html(self.obj.message, title=self.text())
+        self.mark_read()
 
 class AssignmentItem(CanvasItem):
     """
@@ -831,7 +902,7 @@ class CustomProxyModel(QSortFilterProxyModel):
         if not self.ONLY_FAVORITES:
             favorite_accept = True # makes it easy
         else:
-            favorite_accept = item.course().isfavorite
+            favorite_accept = item.course().obj.is_favorite
 
         if item.course().obj.term in self.VISIBLE_TERMS:
             term_accept = True
@@ -839,6 +910,8 @@ class CustomProxyModel(QSortFilterProxyModel):
             term_accept = False
 
         return favorite_accept and term_accept
+
+# ---------------------------- CUSTOM WIDGETS -----------------------------
 
 class SliderHLayout(QHBoxLayout):
     """

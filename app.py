@@ -10,7 +10,7 @@ from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 
 from guihelper import disp_html
-from classdefs import CourseItem, SeparatorItem, CustomProxyModel, SORTROLE
+from classdefs import CanvasItem, CourseItem, SeparatorItem, CustomProxyModel, SORTROLE
 from classdefs import SliderHLayout, CheckableComboBox
 from utils import Preferences
 from appcontrol import set_term_title
@@ -193,6 +193,9 @@ class CanvasApp(QMainWindow):
         canvasitems = [i for i in items if i.column() == 0]
         return canvasitems
 
+    def selected_canvasitem(self):
+        return self.selected_canvasitems()[0]
+
 
 # -------------------- FUNCTIONAL METHODS --------------------
 
@@ -207,27 +210,17 @@ class CanvasApp(QMainWindow):
         return unique_terms
 
     def get_courses_separated(self):
-        favorites = self.user.get_favorite_courses(include='term')
+        favorites = self.user.get_favorite_courses(include=['term', 'favorites'])
         favorite_ids = [c.id for c in favorites]
-        all_courses = list(self.user.get_courses(include='term'))
+        all_courses = list(self.user.get_courses(include=['term', 'favorites']))
         others = [c for c in all_courses if c.id not in favorite_ids]
         return favorites, others
 
     def add_courses(self):
-        favorites, others = self.get_courses_separated()
-
         root = self.model.invisibleRootItem()
 
-        for course in favorites:
-            item = CourseItem(object=course, favorite=True,
-                content=self.contentTypeComboBox.currentIndex(),
-                downloadfolder=self.preferences.current['downloadfolder'])
-            root.appendRow([item, item.date])
-
-        for course in others:
-            item = CourseItem(object=course, favorite=False,
-                content=self.contentTypeComboBox.currentIndex(),
-                downloadfolder=self.preferences.current['downloadfolder'])
+        for course in self.canvas.get_courses(include=['term', 'favorites']):
+            item = CourseItem(object=course, gui=self)
             root.appendRow([item, item.date])
 
     def clear_courses(self):
