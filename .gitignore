@@ -5,5 +5,8 @@ secrets.py
 
 # other irrelevant stuff
 
+login.py
+
 .DS_Store
 __pycache__/*
+archive/*
