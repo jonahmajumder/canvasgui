@@ -32,7 +32,7 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [X] Context menus for everything but expand
 - [X] Different course icons to indicate current content mode
 - [X] Folder (recursive) downloading
-- [ ] Module downloading
+- [X] Module downloading
 - [X] Announcement/discussion topic support
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
 - [X] Filtering by semester
@@ -40,7 +40,7 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [X] Convert from widget to model architecture
 - [X] Sorting by date
 - [X] Select external tools from "tabs" rather than directly
-- [ ] Replace terminal printed lines with dialog? Status bar?
+- [X] Replace terminal printed lines with status bar text
 - [X] Dealing with duplicate children
 - [ ] Deployment into macOS (.app) standalone application
 - [ ] Application-level error handling?

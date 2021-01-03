@@ -37,6 +37,7 @@ class Preferences(QDialog):
         self.canvasapp = canvasapp # knows about parent
 
         self.current = {}
+        self.messages = []
 
         self.build()
 
@@ -45,8 +46,7 @@ class Preferences(QDialog):
         (isvalid, candidates) = self.validate(candidates)
         if all(isvalid.values()):
             self.current = candidates
-            print("Preferences loaded from '{}'.".format(self.AUTOLOAD_FILE))
-            # print(self.current)
+            self.send_message('Preferences loaded from file ("{}").'.format(self.AUTOLOAD_FILE))
         else:
             validprefs = {k:v for (k,v) in candidates.items() if isvalid[k]}
             self.populate_fields(validprefs)
@@ -104,6 +104,16 @@ class Preferences(QDialog):
                 QSize(400,100),
                 self.screen().geometry())
         )
+
+    def send_message(self, text):
+        # only set up to store one message at the moment
+        self.messages = [text]
+
+    def get_message(self):
+        return self.messages.pop(0)
+
+    def message_present(self):
+        return len(self.messages) > 0
 
     def browse(self):
         folder = QFileDialog.getExistingDirectory(

@@ -51,8 +51,6 @@ class CanvasItem(QStandardItem):
     def __init__(self, *args, **kwargs):
         self.obj = kwargs.pop('object', None)
         super(CanvasItem, self).__init__(*args, **kwargs)
-        # super(DoubleClickHandler, self).__init__()
-        # print(repr(self.obj))
         if hasattr(self.obj, 'name'):
             self.name = self.obj.name
         elif hasattr(self.obj, 'title'):
@@ -126,12 +124,15 @@ class CanvasItem(QStandardItem):
         else:
             return self.parent().course()
 
+    def print(self, text):
+        self.course().gui.print(text)
+
     def safe_get_folders(self, folder=None):
         parent = folder if folder else self.obj
         try:
             folders = list(parent.get_folders())
         except Unauthorized:
-            print('Unauthorized!')
+            self.print('Unauthorized!')
             folders = []
         return folders
 
@@ -140,7 +141,7 @@ class CanvasItem(QStandardItem):
         try:
             files = list(parent.get_files())
         except Unauthorized:
-            print('Unauthorized!')
+            self.print('Unauthorized!')
             files = []
         return files
 
@@ -168,9 +169,7 @@ class CanvasItem(QStandardItem):
 
         if html is not None:
             links = self.get_html_links(html)
-            # print(self.text())
-            # print('Link types: ' + str(list(links.keys())))
-            # print('')
+
             files = links.get('File', [])
             pages = links.get('Page', [])
             quizzes = links.get('Quiz', [])
@@ -204,9 +203,9 @@ class CanvasItem(QStandardItem):
                     item = AssignmentItem(object=assignment)
                     self.append_item_row(item)
             if not sum(links.values(), []):
-                print('No links found.')
+                self.print('No HTML links found.')
         else:
-            print('HTML is None.')
+            self.print('No HTML present.')
 
     def retrieve_sessionless_url(self):
         if hasattr(self.obj, 'url'):
@@ -230,7 +229,7 @@ class CanvasItem(QStandardItem):
 
     @staticmethod
     def open_and_notify(url):
-        print('Opening linked url:\n{}'.format(url))
+        self.print('Opening linked url:\n{}'.format(url))
         webbrowser.open(url)
 
 class CourseItem(CanvasItem):
@@ -367,10 +366,10 @@ class CourseItem(CanvasItem):
         try:
             return getattr(self.obj, method)(id)
         except Unauthorized:
-            print('Unauthorized!')
+            self.print('Unauthorized!')
             return None
         except ResourceDoesNotExist:
-            print('Resource "{0}" (via "{1}") not found for course "{2}".'.format(id, method, self.name))
+            self.print('Resource "{0}" (via "{1}") not found for course "{2}".'.format(id, method, self.name))
             return None
 
 class ExternalToolItem(CanvasItem):
@@ -395,9 +394,7 @@ class ExternalToolItem(CanvasItem):
         if 'url' in self.obj.custom_fields:
             self.open_and_notify(self.obj.custom_fields['url'])
         else:
-            print('No external url found!')
-            # print('')
-            # print(repr(self.obj))
+            self.print('No external url found!')
 
 class TabItem(CanvasItem):
     """
@@ -419,9 +416,7 @@ class TabItem(CanvasItem):
         if u is not None:
             self.open_and_notify(u)
         else:
-            print('No external url found!')
-            # print('')
-            # print(repr(self.obj))
+            self.print('No external url found!')
 
     def dblClickFcn(self, **kwargs):
         self.open(**kwargs)
@@ -471,7 +466,7 @@ class ModuleItem(CanvasItem):
                     item = AssignmentItem(object=assignment)
                     self.append_item_row(item)
             else:
-                print(repr(mi))
+                self.print('{0} has unrecognized type ("{1}").'.format(str(mi), mi.type))
                 item = ModuleItemItem(object=mi)
                 self.append_item_row(item)
 
@@ -493,7 +488,7 @@ class ModuleItem(CanvasItem):
         folderpath = Path(loc) / self.name
 
         if folderpath.exists():
-            print('Folder {} already exists here; module not downloaded.'.format(self.name))
+            self.print('Folder {0} already exists at {1}; module not downloaded.'.format(self.name, loc))
         else:
             folderpath.mkdir()
             self.expand()
@@ -519,7 +514,7 @@ class ModuleItemItem(CanvasItem):
         if hasattr(self.obj, 'html_url'):
             self.open_and_notify(self.obj.html_url)
         else:
-            print('No html_url to open.')
+            self.print('No html_url to open.')
 
     def dblClickFcn(self, **kwargs):
         self.open(**kwargs)
@@ -562,7 +557,7 @@ class FolderItem(CanvasItem):
         folderpath = Path(loc) / self.name
 
         if folderpath.exists():
-            print('Folder {} already exists here; not downloaded.'.format(self.name))
+            self.print('Folder {0} already exists at {1}; not downloaded.'.format(self.name, loc))
         else:
             folderpath.mkdir()
             self.expand()
@@ -603,12 +598,13 @@ class FileItem(CanvasItem):
             newpath = Path(loc) / filename # build local file Path obj
             if not newpath.exists():
                 self.save_data(str(newpath))
-                print('{} downloaded.'.format(filename))
+                self.print('{} downloaded.'.format(filename))
             else:
-                print('{} already exists here; file not replaced.'.format(filename))
+                self.print('{0} already exists at {1}; file not replaced.'.format(filename, loc))
 
             if newpath.suffix in CONVERTIBLE_EXTENSIONS:
                 if confirm_dialog('Convert {} to PDF?'.format(filename), title='Convert File'):
+                    self.print('Converting {} to a PDF.'.format(filename))
                     convert(newpath)
                     os.remove(newpath)
 
@@ -639,7 +635,7 @@ class PageItem(CanvasItem):
         if self.obj.body:
             disp_html(self.obj.body, title=self.name)
         else:
-            print('No content on page.')
+            self.print('No content on page.')
 
 class QuizItem(CanvasItem):
     """
@@ -825,7 +821,7 @@ class Date(QStandardItem):
             else:
                 return None
         else:
-            print('No date found for {}.'.format(str(self.obj)))
+            self.item.print('No date found for {}.'.format(str(self.obj)))
             return None
 
     def datetime_from_obj(self):
@@ -880,7 +876,6 @@ class CustomProxyModel(QSortFilterProxyModel):
 
     def terms_changed(self, bool_vals):
         self.VISIBLE_TERMS = [t for (t,b) in zip(self.terms, bool_vals) if b]
-        # [print(t) for t in self.VISIBLE_TERMS]
         self.invalidateFilter()
 
     def filtering_item(self, row, parentindex, column=0):

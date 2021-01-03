@@ -5,6 +5,7 @@ secrets.py
 
 # other irrelevant stuff
 
+dialogtest.py
 login.py
 
 .DS_Store

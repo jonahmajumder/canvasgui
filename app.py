@@ -16,7 +16,6 @@ from utils import Preferences
 from appcontrol import set_term_title
 from secrets import BASEURL, TOKEN
 
-
 class CanvasApp(QMainWindow):
     SIZE = (800, 600)
     TITLE = 'Canvas Browser'
@@ -35,7 +34,6 @@ class CanvasApp(QMainWindow):
 
         if len(self.preferences.current) == 0:
             # this means no preferences (user closed pref window)
-            print('No preferences!')
             sys.exit()
 
         self.canvas = Canvas(
@@ -45,7 +43,10 @@ class CanvasApp(QMainWindow):
         self.user = self.canvas.get_current_user()
         self.terms = self.unique_terms()
 
-        self.addWidgets()
+        self.build()
+
+        if self.preferences.message_present():
+            self.print(self.preferences.get_message(), 0)
 
         # use preferences to set content type combo box
         self.contentTypeComboBox.setCurrentIndex(self.preferences.current['defaultcontent'])
@@ -65,7 +66,7 @@ class CanvasApp(QMainWindow):
 
 # -------------------- INITIALIZATION METHODS --------------------
 
-    def addWidgets(self):
+    def build(self):
 
         self.contentTypeComboBox = QComboBox()
         for ct in CourseItem.CONTENT_TYPES:
@@ -156,6 +157,8 @@ class CanvasApp(QMainWindow):
         self.central.setLayout(self.mainLayout)
         self.setCentralWidget(self.central)
 
+        self.statusBar()
+
     def center_on_screen(self):
         self.setGeometry(
             QStyle.alignedRect(
@@ -165,6 +168,9 @@ class CanvasApp(QMainWindow):
                 self.screen().geometry() # rectangle to center to
             )
         )
+
+    def print(self, text, timeout=2000):
+        self.statusBar().showMessage(text, timeout)
 
     def connect_signals(self):
         self.tree.doubleClicked.connect(self.tree_double_click)
@@ -243,7 +249,7 @@ class CanvasApp(QMainWindow):
         for item in to_expand:
             item.expand_recursive()
 
-        print('Load time: {:.2f}'.format(time() - start_time))
+        self.print('Load time: {:.2f}'.format(time() - start_time))
 
     def generate_profile_html(self):
         data = self.user.get_profile()

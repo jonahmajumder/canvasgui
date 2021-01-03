@@ -75,14 +75,13 @@ def convert(*args):
     else:
         outfile = Path(args[1])
 
-    if outfile.exists():
-        print('Overwriting existing PDF file. {} may require access.'.format(app))
+    # if outfile.exists():
+        # print('Overwriting existing PDF file. {} may require access.'.format(app))
 
     infile_asform = ('Macintosh HD' + str(infile)).replace(os.path.sep, ':')
     outfile_asform = ('Macintosh HD' + str(outfile)).replace(os.path.sep, ':')
 
     formatted = script.format(infile_asform, outfile_asform)
-    # print(formatted)
     ret = run_osascript(formatted)
 
 if __name__ == '__main__':
