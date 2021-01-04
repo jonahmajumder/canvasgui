@@ -12,5 +12,3 @@ pyinstaller main.py \
     --name CanvasBrowser \
     --icon icons/icon.icns \
     --add-data 'icons/*.png:icons'
-
-cp defaults.json dist

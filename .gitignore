@@ -11,3 +11,5 @@ login.py
 .DS_Store
 __pycache__/*
 archive/*
+build/*
+dist/*

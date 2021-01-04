@@ -60,6 +60,8 @@ class CanvasApp(QMainWindow):
         
         self.center_on_screen()
 
+        self.print('Welcome, {}!'.format(self.user.get_profile()['name']),  append=True)
+
     def auth_get(self, url):
         return self.canvas._Canvas__requester.request('GET', _url=url)
 
@@ -168,8 +170,13 @@ class CanvasApp(QMainWindow):
             )
         )
 
-    def print(self, text, timeout=0): # default: stay there until replaced
-        self.statusBar().showMessage(text, timeout)
+    def print(self, text, timeout=0, **kwargs): # default: stay there until replaced
+        append = kwargs.get('append', False)
+        if append:
+            current = self.statusBar().currentMessage()
+            self.statusBar().showMessage(' '.join([current, text]), timeout)
+        else:
+            self.statusBar().showMessage(text, timeout)
 
     def connect_signals(self):
         self.tree.doubleClicked.connect(self.tree_double_click)

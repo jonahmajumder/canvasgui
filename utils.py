@@ -49,7 +49,7 @@ class Preferences(QDialog):
         (isvalid, candidates) = self.validate(candidates)
         if all(isvalid.values()):
             self.current = candidates
-            self.send_message('Preferences loaded from file ("{}")'.format(self.AUTOLOAD_FILE))
+            self.send_message('Preferences loaded from {} file.'.format(self.AUTOLOAD_FILE.name))
         else:
             validprefs = {k:v for (k,v) in candidates.items() if isvalid[k]}
             self.populate_fields(validprefs)
