@@ -13,8 +13,7 @@ from guihelper import disp_html
 from classdefs import CanvasItem, CourseItem, SeparatorItem, CustomProxyModel, SORTROLE
 from classdefs import SliderHLayout, CheckableComboBox
 from utils import Preferences
-from appcontrol import set_term_title
-from secrets import BASEURL, TOKEN
+# from locations import ResourceFile
 
 class CanvasApp(QMainWindow):
     SIZE = (800, 600)
@@ -27,7 +26,7 @@ class CanvasApp(QMainWindow):
         self.app = QApplication.instance()
 
         self.app.setAttribute(Qt.AA_UseHighDpiPixmaps)
-        self.app.setWindowIcon(QIcon('icons/icon.icns'))
+        # self.app.setWindowIcon(QIcon(ResourceFile('icons/icon.icns')))
         self.setWindowTitle(self.TITLE)
 
         self.preferences = Preferences(self)

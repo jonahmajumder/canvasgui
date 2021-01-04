@@ -20,10 +20,7 @@ from canvasapi.favorite import Favorite
 from canvasapi.exceptions import Unauthorized, ResourceDoesNotExist
 from appcontrol import convert, CONVERTIBLE_EXTENSIONS
 from guihelper import disp_html, confirm_dialog
-
-DOWNLOADS = Path.home() / 'Downloads'
-
-assert DOWNLOADS.exists()
+from locations import ResourceFile
 
 SORTROLE = 256
 
@@ -73,6 +70,9 @@ class CanvasItem(QStandardItem):
 
     def auth_get(self, url):
         return self.obj._requester.request('GET', _url=url)
+
+    def api_get(self, urlpath):
+        return self.obj._requester.request('GET', urlpath)
 
     def identifier(self):
         if isinstance(self, PageItem):
@@ -145,12 +145,25 @@ class CanvasItem(QStandardItem):
             files = []
         return files
 
-    @staticmethod
-    def get_html_links(html):
+    def to_apiurl(self, url):
+        parts = parse.urlsplit(url)
+
+    def get_html_links(self, html):
         linkdict = {}
         soup = BeautifulSoup(html, 'html.parser')
         links = soup.find_all('a')
-        classes = [l.attrs.get('class', []) for l in links]
+        for l in links:
+            if 'instructure_file_link' in l.attrs.get('class', []):
+                try:
+                    urlparts = parse.urlsplit(l.attrs['href'])
+                    r = self.api_get(urlparts.path)
+                    newpath = 'api/v1/' / Path(urlparts.path).relative_to('/')
+                    newparts = urlparts._replace(query='', path=str(newpath))
+                    l.attrs['data-api-returntype'] = 'File'
+                    l.attrs['data-api-endpoint'] = parse.urlunsplit(newparts)
+                except ResourceDoesNotExist:
+                    pass
+
         rettypes = [l.attrs.get('data-api-returntype', '') for l in links]
         for (l, r) in zip(links, rettypes):
             if len(r) > 0:
@@ -217,8 +230,7 @@ class CanvasItem(QStandardItem):
 
         return None
 
-    @staticmethod
-    def parse_api_url(apiurl):
+    def parse_api_url(self, apiurl):
         pathstr = parse.urlsplit(apiurl).path.strip(os.sep)
         parts = Path(pathstr).parts
         if not len(parts) % 2:
@@ -283,7 +295,7 @@ class CourseItem(CanvasItem):
 
         self.make_context_menu()
 
-        self.setIcon(QIcon(self.CONTENT_TYPES[self.content]['icon']))
+        self.setIcon(QIcon(ResourceFile(self.CONTENT_TYPES[self.content]['icon'])))
 
     def add_favorite(self):
         self.favoriteobj = self.gui.user.add_favorite_course(self.obj.id)
@@ -384,7 +396,7 @@ class ExternalToolItem(CanvasItem):
         ])
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/link.png'))
+        self.setIcon(QIcon(ResourceFile('icons/link.png')))
 
     def dblClickFcn(self, **kwargs):
         self.open(**kwargs)
@@ -408,7 +420,7 @@ class TabItem(CanvasItem):
             {'displayname': 'Open', 'function': self.open}
         ])
 
-        self.setIcon(QIcon('icons/link.png'))
+        self.setIcon(QIcon(ResourceFile('icons/link.png')))
 
     def open(self, **kwargs):
         u = self.retrieve_sessionless_url()
@@ -433,7 +445,7 @@ class ExternalUrlItem(CanvasItem):
         ])
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/link.png'))
+        self.setIcon(QIcon(ResourceFile('icons/link.png')))
 
     def dblClickFcn(self, **kwargs):
         self.open(**kwargs)
@@ -453,7 +465,7 @@ class ModuleItem(CanvasItem):
         ])
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/module.png'))
+        self.setIcon(QIcon(ResourceFile('icons/module.png')))
 
     def expand(self, **kwargs):
         items = list(self.obj.get_module_items(include='content_details'))
@@ -486,7 +498,7 @@ class ModuleItem(CanvasItem):
                     item = AssignmentItem(object=assignment)
                     self.append_item_row(item)
 
-            elif mi.type == 'ExternalUrl':
+            elif mi.type == 'ExternalUrl' or mi.type == 'ExternalTool':
                 item = ExternalUrlItem(object=mi)
                 self.append_item_row(item)
             else:
@@ -532,7 +544,7 @@ class ModuleItemItem(CanvasItem):
         ])
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/link.png'))
+        self.setIcon(QIcon(ResourceFile('icons/link.png')))
 
     def open(self, **kwargs):
         if hasattr(self.obj, 'html_url'):
@@ -555,7 +567,7 @@ class FolderItem(CanvasItem):
         ])
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/folder.png'))
+        self.setIcon(QIcon(ResourceFile('icons/folder.png')))
 
     def expand(self, **kwargs):
         for file in self.safe_get_files():
@@ -600,7 +612,7 @@ class FileItem(CanvasItem):
         ])
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/file.png'))
+        self.setIcon(QIcon(ResourceFile('icons/file.png')))
 
     # this is a faster version of the CanvasAPI's download method (not sure why...)
     def save_data(self, filepath):
@@ -647,7 +659,7 @@ class PageItem(CanvasItem):
         ])
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/html.png'))
+        self.setIcon(QIcon(ResourceFile('icons/html.png')))
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.body, **kwargs)
@@ -673,7 +685,7 @@ class QuizItem(CanvasItem):
         ])
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/quiz.png'))
+        self.setIcon(QIcon(ResourceFile('icons/quiz.png')))
 
     def open(self, **kwargs):
         self.open_and_notify(self.obj.html_url)
@@ -696,7 +708,7 @@ class DiscussionItem(CanvasItem):
         ])
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/discussion.png'))
+        self.setIcon(QIcon(ResourceFile('icons/discussion.png')))
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.message, **kwargs)
@@ -738,12 +750,12 @@ class AnnouncementItem(CanvasItem):
             self.CONTEXT_MENU_ACTIONS.extend([
                 {'displayname': 'Mark as Unread', 'function': self.mark_unread}
             ])
-            self.setIcon(QIcon('icons/announcement.png'))
+            self.setIcon(QIcon(ResourceFile('icons/announcement.png')))
         else:
             self.CONTEXT_MENU_ACTIONS.extend([
                 {'displayname': 'Mark as Read', 'function': self.mark_read}
             ])
-            self.setIcon(QIcon('icons/announcement_unread_blue.png'))
+            self.setIcon(QIcon(ResourceFile('icons/announcement_unread_blue.png')))
 
         self.make_context_menu()
 
@@ -782,7 +794,7 @@ class AssignmentItem(CanvasItem):
         ])
         self.make_context_menu()
 
-        self.setIcon(QIcon('icons/assignment.png'))
+        self.setIcon(QIcon(ResourceFile('icons/assignment.png')))
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.description, **kwargs)

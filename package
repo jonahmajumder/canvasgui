@@ -1,0 +1,16 @@
+#!/bin/bash
+# package python program to .app
+
+
+echo "Running script to package Canvas app..."
+
+# clean directories
+rm -rf build dist
+
+pyinstaller main.py \
+    --windowed \
+    --name CanvasBrowser \
+    --icon icons/icon.icns \
+    --add-data 'icons/*.png:icons'
+
+cp defaults.json dist

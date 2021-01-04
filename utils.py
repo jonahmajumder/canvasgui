@@ -1,6 +1,7 @@
 # utils.py
 from pathlib import Path
 import json
+import os, sys
 import warnings
 from requests.exceptions import ConnectionError
 
@@ -16,7 +17,9 @@ from canvasapi import Canvas
 from canvasapi.exceptions import InvalidAccessToken
 from classdefs import CourseItem
 
-DOWNLOADS = Path.home() / 'Downloads'
+from locations import ResourceFile, HOME
+
+# from guihelper import disp_html
 
 class InvalidPreferences(Exception):
     pass
@@ -28,9 +31,9 @@ class Preferences(QDialog):
     token
     download location
     show favorites?
-
     """
-    AUTOLOAD_FILE = 'defaults.json'
+
+    AUTOLOAD_FILE = HOME / '.canvasdefaults'
 
     def __init__(self, canvasapp):
         super(Preferences, self).__init__()
@@ -46,7 +49,7 @@ class Preferences(QDialog):
         (isvalid, candidates) = self.validate(candidates)
         if all(isvalid.values()):
             self.current = candidates
-            self.send_message('Preferences loaded from file ("{}").'.format(self.AUTOLOAD_FILE))
+            self.send_message('Preferences loaded from file ("{}")'.format(self.AUTOLOAD_FILE))
         else:
             validprefs = {k:v for (k,v) in candidates.items() if isvalid[k]}
             self.populate_fields(validprefs)
@@ -74,7 +77,7 @@ class Preferences(QDialog):
         self.pathLayout.addWidget(self.pathField)
         self.browseButton = QPushButton()
         self.browseButton.setFocusPolicy(Qt.NoFocus)
-        self.browseButton.setIcon(QIcon('icons/folder.png'))
+        self.browseButton.setIcon(QIcon(ResourceFile('icons/folder.png')))
         self.pathLayout.addWidget(self.browseButton)
         self.mainLayout.addRow('Download Destination:', self.pathLayout)
         self.browseButton.clicked.connect(self.browse)
@@ -83,6 +86,15 @@ class Preferences(QDialog):
         for ct in CourseItem.CONTENT_TYPES:
             self.contentComboBox.addItem(ct['displayname'])
         self.mainLayout.addRow('Default Content:', self.contentComboBox)
+
+        self.saveLayout = QHBoxLayout()
+        self.saveLabel = QLabel('Save validated preferences as defaults:')
+        self.saveLabel.setAlignment(Qt.AlignRight)
+        self.saveLayout.addWidget(self.saveLabel)
+        self.saveValidated = QCheckBox()
+        self.saveLayout.addWidget(self.saveValidated)
+        self.saveLayout.setStretch(0, 1)
+        self.saveLayout.setStretch(1, 0)
 
         self.buttons = QDialogButtonBox()
         self.cancelButton = self.buttons.addButton('Cancel', QDialogButtonBox.RejectRole)
@@ -93,6 +105,7 @@ class Preferences(QDialog):
         self.buttons.rejected.connect(self.reject)
 
         self.fullLayout.addLayout(self.mainLayout)
+        self.fullLayout.addLayout(self.saveLayout)
         self.fullLayout.addWidget(self.buttons)
 
         self.setLayout(self.fullLayout)
@@ -117,7 +130,7 @@ class Preferences(QDialog):
 
     def browse(self):
         folder = QFileDialog.getExistingDirectory(
-            self, 'Select Folder', str(DOWNLOADS), QFileDialog.ShowDirsOnly)
+            self, 'Select Folder', str(os.getcwd()), QFileDialog.ShowDirsOnly)
         if len(folder) > 0:
             self.pathField.setText(folder)
 
@@ -149,12 +162,12 @@ class Preferences(QDialog):
             candidates['token'] = j.get('token', '')
             candidates['downloadfolder'] = j.get('downloadfolder', '')
             candidates['defaultcontent'] = j.get('defaultcontent', 'modules')
-        
+
         return candidates
 
     def save_current(self, file):
         with open(file, 'w') as fobj:
-            json.dump(self.current)
+            json.dump(self.current, fobj, indent=4)
 
     def run(self, cancellable=True):
         self.cancelButton.setEnabled(cancellable)
@@ -166,6 +179,8 @@ class Preferences(QDialog):
         (isvalid, candidates) = self.validate(candidates)
         if all(isvalid.values()):
             self.current = candidates
+            if self.saveValidated.isChecked():
+                self.save_current(self.AUTOLOAD_FILE)
             self.accept()
         else:
             invalid = [k for (k,v) in isvalid.items() if not v]
