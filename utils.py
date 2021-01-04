@@ -130,9 +130,16 @@ class Preferences(QDialog):
 
     def browse(self):
         folder = QFileDialog.getExistingDirectory(
-            self, 'Select Folder', str(os.getcwd()), QFileDialog.ShowDirsOnly)
+            self, 'Select Folder', self.browse_default(), QFileDialog.ShowDirsOnly)
         if len(folder) > 0:
             self.pathField.setText(folder)
+
+    def browse_default(self):
+        current = Path(self.pathField.text())
+        if current.exists() and current.is_dir() and current == current.absolute():
+            return str(current)
+        else:
+            return str(HOME)
 
     def populate_fields(self, prefs):
         # note: only validated prefs should be put in here!
@@ -141,6 +148,13 @@ class Preferences(QDialog):
         self.tokenField.setText(prefs.get('token', ''))
         self.pathField.setText(prefs.get('downloadfolder', ''))
         self.contentComboBox.setCurrentIndex(prefs.get('defaultcontent', 0))
+
+    def populate_with_current(self):
+        # double check that current settings are valid
+        (isvalid, validated) = self.validate(self.current)
+        assert all(isvalid.values()) 
+
+        self.populate_fields(validated)
 
     def gather_fields(self):
         prefs = {
@@ -171,8 +185,9 @@ class Preferences(QDialog):
 
     def run(self, cancellable=True):
         self.cancelButton.setEnabled(cancellable)
-        self.exec_()
+        accepted = bool(self.exec_())
         self.cancelButton.setEnabled(True)
+        return accepted
 
     def accept_if_valid(self):
         candidates = self.gather_fields()

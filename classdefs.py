@@ -22,7 +22,7 @@ from appcontrol import convert, CONVERTIBLE_EXTENSIONS
 from guihelper import disp_html, confirm_dialog
 from locations import ResourceFile
 
-SORTROLE = 256
+SORTROLE = Qt.UserRole
 
 class SeparatorItem(QStandardItem):
     """
@@ -901,8 +901,7 @@ class CustomProxyModel(QSortFilterProxyModel):
         # set defaults
         self.ONLY_FAVORITES = kwargs.pop('favorites_initial', True)
         self.terms = kwargs.pop('terms', [])
-        self.term_ids = [t['id'] for t in self.terms]
-        self.VISIBLE_TERM_IDS =  self.term_ids # initially all
+        self.VISIBLE_TERM_IDS =  [t['id'] for t in self.terms] # initially all
 
         super(QSortFilterProxyModel, self).__init__(*args, **kwargs)
 
@@ -913,7 +912,8 @@ class CustomProxyModel(QSortFilterProxyModel):
         self.invalidateFilter() # signal that filtering param changed
 
     def terms_changed(self, bool_vals):
-        self.VISIBLE_TERM_IDS = [i for (i,b) in zip(self.term_ids, bool_vals) if b]
+        terms = [t['id'] for t in self.terms]
+        self.VISIBLE_TERM_IDS = [i for (i,b) in zip(terms, bool_vals) if b]
         self.invalidateFilter()
 
     def filtering_item(self, row, parentindex, column=0):
@@ -1013,6 +1013,7 @@ class CheckableComboBox(QComboBox):
     subclass of QComboBox with checkable options
     """
     selectionsChanged = pyqtSignal(list)
+    TagDataRole = Qt.UserRole + 1
 
     def __init__(self, *args, **kwargs):
 
@@ -1045,13 +1046,14 @@ class CheckableComboBox(QComboBox):
         """)
 
 
-    def addItem(self, text, checked=False):
+    def addItem(self, text, checked=False, tag=None):
         newitem = QStandardItem(text)
         newitem.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled | Qt.ItemIsSelectable)
         if checked:
             newitem.setData(Qt.Checked, Qt.CheckStateRole)
         else:
             newitem.setData(Qt.Unchecked, Qt.CheckStateRole)
+        newitem.setData(tag, self.TagDataRole)
         self.model.appendRow(newitem)
 
     def children(self):

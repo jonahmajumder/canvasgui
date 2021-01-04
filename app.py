@@ -35,12 +35,7 @@ class CanvasApp(QMainWindow):
             # this means no preferences (user closed pref window)
             sys.exit()
 
-        self.canvas = Canvas(
-            self.preferences.current['baseurl'],
-            self.preferences.current['token']
-        )
-        self.user = self.canvas.get_current_user()
-        self.terms = self.unique_terms()
+        self.init_api()
 
         self.build()
 
@@ -66,6 +61,14 @@ class CanvasApp(QMainWindow):
         return self.canvas._Canvas__requester.request('GET', _url=url)
 
 # -------------------- INITIALIZATION METHODS --------------------
+
+    def init_api(self):
+        self.canvas = Canvas(
+            self.preferences.current['baseurl'],
+            self.preferences.current['token']
+        )
+        self.user = self.canvas.get_current_user()
+        self.terms = self.unique_terms()
 
     def build(self):
 
@@ -106,7 +109,7 @@ class CanvasApp(QMainWindow):
 
         self.termComboBox = CheckableComboBox('Select Semester(s)')
         for t in self.terms:
-            self.termComboBox.addItem(t['name'], True)
+            self.termComboBox.addItem(t['name'], True, t['id'])
 
         self.termLayout = QHBoxLayout()
         self.termLayout.addItem(QSpacerItem(20,40))
@@ -170,14 +173,6 @@ class CanvasApp(QMainWindow):
             )
         )
 
-    def print(self, text, timeout=0, **kwargs): # default: stay there until replaced
-        append = kwargs.get('append', False)
-        if append:
-            current = self.statusBar().currentMessage()
-            self.statusBar().showMessage(' '.join([current, text]), timeout)
-        else:
-            self.statusBar().showMessage(text, timeout)
-
     def connect_signals(self):
         self.tree.doubleClicked.connect(self.tree_double_click)
 
@@ -208,8 +203,19 @@ class CanvasApp(QMainWindow):
     def selected_canvasitem(self):
         return self.selected_canvasitems()[0]
 
+    def contentTypeChanged(self):
+        self.clear_courses()
+        self.add_courses()
 
 # -------------------- FUNCTIONAL METHODS --------------------
+
+    def print(self, text, timeout=0, **kwargs): # default: stay there until replaced
+        append = kwargs.get('append', False)
+        if append:
+            current = self.statusBar().currentMessage()
+            self.statusBar().showMessage(' '.join([current, text]), timeout)
+        else:
+            self.statusBar().showMessage(text, timeout)
 
     def unique_terms(self):
         all_terms = [c.term for c in self.canvas.get_courses(include='term')]
@@ -221,6 +227,24 @@ class CanvasApp(QMainWindow):
         unique_terms[-1]['name'] = 'No Term' # change name of item with id = 1
         return unique_terms
 
+    def synchronize_terms_to_gui(self):
+        # assume self.terms has been updated
+        gui_ids = [item.data(self.termComboBox.TagDataRole) for item in self.termComboBox.children()]
+        term_ids = [t['id'] for t in self.terms]
+
+        missing_terms = [t for (ti, t) in zip(term_ids, self.terms) if ti not in gui_ids]
+        extra_items = [ch for (gi, ch) in zip(gui_ids, self.termComboBox.children()) if gi not in term_ids]
+
+        for item in extra_items:
+            self.termComboBox.model.removeRow(item.row())
+
+        for term in missing_terms:
+            self.termComboBox.addItem(term['name'], True, term['id'])
+
+        # update GUI filtering in case it should change
+        self.proxyModel.terms = self.terms
+        self.termComboBox.selectionChangedFcn(None)
+
     def add_courses(self):
         root = self.model.invisibleRootItem()
 
@@ -230,10 +254,6 @@ class CanvasApp(QMainWindow):
 
     def clear_courses(self):
         self.model.removeRows(0, self.model.rowCount())
-
-    def contentTypeChanged(self):
-        self.clear_courses()
-        self.add_courses()
 
     def expand_all(self):
         start_time = time()
@@ -269,6 +289,20 @@ class CanvasApp(QMainWindow):
         html += '</div>'
         return html
 
+# -------------------- MENU ACTION METHODS --------------------
+
     def show_user(self):
         htmlstr = self.generate_profile_html()
         disp_html(htmlstr, title='Current User')
+
+    def edit_preferences(self):
+        self.preferences.populate_with_current()
+        oldprefs = self.preferences.current
+        accepted = self.preferences.run()
+
+        if accepted and self.preferences.current != oldprefs:
+            self.print('Application preferences changed.')
+            self.init_api() # reset canvasapi instance
+            self.synchronize_terms_to_gui() # account for potentially new set of course terms
+            self.contentTypeChanged() # trigger repopulation of classes
+

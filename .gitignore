@@ -8,6 +8,8 @@ secrets.py
 dialogtest.py
 login.py
 
+canvasapi alias
+
 .DS_Store
 __pycache__/*
 archive/*

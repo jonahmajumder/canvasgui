@@ -28,7 +28,9 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 ### To do list:
 
 - [X] Pereferences UI allowing specification of login credentials, download destination, default view
-- [ ] Autosaving/setting defaults.json file
+- [X] Autosaving/setting defaults file
+- [X] Editing of preferences during app operation
+- [ ] Test changing user/auth credentials during app operation (i.e. resetting)
 - [X] Context menus for everything but expand
 - [X] Different course icons to indicate current content mode
 - [X] Folder (recursive) downloading
@@ -42,6 +44,7 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [X] Select external tools from "tabs" rather than directly
 - [X] Replace terminal printed lines with status bar text
 - [X] Dealing with duplicate children
-- [ ] Deployment into macOS (.app) standalone application
+- [X] Deployment into macOS (.app) standalone application
+- [ ] Create menu for showing profile, opening preferences editor, quitting, checking connection?
 - [ ] Application-level error handling?
 - [ ] Multithreaded retrieval of data for "expand all" (back burner)
