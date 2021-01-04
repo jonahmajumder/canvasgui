@@ -67,7 +67,7 @@ class CanvasItem(QStandardItem):
 
         self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-        self.date = Date(item=self)
+        self.date = DateItem(item=self)
 
         self.CONTEXT_MENU_ACTIONS = []
 
@@ -227,8 +227,7 @@ class CanvasItem(QStandardItem):
             raise Exception('Odd number of path elements to parse ({})'.format(pathstr))
         return info
 
-    @staticmethod
-    def open_and_notify(url):
+    def open_and_notify(self, url):
         self.print('Opening linked url:\n{}'.format(url))
         webbrowser.open(url)
 
@@ -421,6 +420,27 @@ class TabItem(CanvasItem):
     def dblClickFcn(self, **kwargs):
         self.open(**kwargs)
 
+class ExternalUrlItem(CanvasItem):
+    """
+    class for module items with type "externalurl" which have no canvasapi class
+    have "external_url" property and little else (typically no date)
+    """
+    def __init__(self, *args, **kwargs):
+        super(ExternalUrlItem, self).__init__(*args, **kwargs)
+
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Open', 'function': self.open}
+        ])
+        self.make_context_menu()
+
+        self.setIcon(QIcon('icons/link.png'))
+
+    def dblClickFcn(self, **kwargs):
+        self.open(**kwargs)
+
+    def open(self, **kwargs):
+        self.open_and_notify(self.obj.external_url)
+
 class ModuleItem(CanvasItem):
     """
     class for tree elements with corresponding canvasapi "module" objects
@@ -436,7 +456,7 @@ class ModuleItem(CanvasItem):
         self.setIcon(QIcon('icons/module.png'))
 
     def expand(self, **kwargs):
-        items = list(self.obj.get_module_items())
+        items = list(self.obj.get_module_items(include='content_details'))
         for mi in items:
             if mi.type == 'SubHeader':
                 pass
@@ -465,6 +485,10 @@ class ModuleItem(CanvasItem):
                 if assignment:
                     item = AssignmentItem(object=assignment)
                     self.append_item_row(item)
+
+            elif mi.type == 'ExternalUrl':
+                item = ExternalUrlItem(object=mi)
+                self.append_item_row(item)
             else:
                 self.print('{0} has unrecognized type ("{1}").'.format(str(mi), mi.type))
                 item = ModuleItemItem(object=mi)
@@ -778,14 +802,16 @@ class AssignmentItem(CanvasItem):
 
 # ----------------------------------------------------------------------
 
-class Date(QStandardItem):
-    """docstring for Date"""
+class DateItem(QStandardItem):
+    """
+    QStandardItem subclass used in second column to represent date of CanvasItem
+    """
     TIMEZONE = pytz.timezone('America/New_York')
 
     def __init__(self, *args, **kwargs):
         self.item = kwargs.pop('item')
         self.obj = self.item.obj
-        super(Date, self).__init__(*args, **kwargs)
+        super(DateItem, self).__init__(*args, **kwargs)
         self.datetime = self.datetime_from_obj()
 
         self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
@@ -821,7 +847,6 @@ class Date(QStandardItem):
             else:
                 return None
         else:
-            self.item.print('No date found for {}.'.format(str(self.obj)))
             return None
 
     def datetime_from_obj(self):
@@ -864,7 +889,8 @@ class CustomProxyModel(QSortFilterProxyModel):
         # set defaults
         self.ONLY_FAVORITES = kwargs.pop('favorites_initial', True)
         self.terms = kwargs.pop('terms', [])
-        self.VISIBLE_TERMS = self.terms # initially all
+        self.term_ids = [t['id'] for t in self.terms]
+        self.VISIBLE_TERM_IDS =  self.term_ids # initially all
 
         super(QSortFilterProxyModel, self).__init__(*args, **kwargs)
 
@@ -875,7 +901,7 @@ class CustomProxyModel(QSortFilterProxyModel):
         self.invalidateFilter() # signal that filtering param changed
 
     def terms_changed(self, bool_vals):
-        self.VISIBLE_TERMS = [t for (t,b) in zip(self.terms, bool_vals) if b]
+        self.VISIBLE_TERM_IDS = [i for (i,b) in zip(self.term_ids, bool_vals) if b]
         self.invalidateFilter()
 
     def filtering_item(self, row, parentindex, column=0):
@@ -899,7 +925,7 @@ class CustomProxyModel(QSortFilterProxyModel):
         else:
             favorite_accept = item.course().obj.is_favorite
 
-        if item.course().obj.term in self.VISIBLE_TERMS:
+        if item.course().obj.term['id'] in self.VISIBLE_TERM_IDS:
             term_accept = True
         else:
             term_accept = False

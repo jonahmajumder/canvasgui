@@ -169,7 +169,7 @@ class CanvasApp(QMainWindow):
             )
         )
 
-    def print(self, text, timeout=2000):
+    def print(self, text, timeout=0): # default: stay there until replaced
         self.statusBar().showMessage(text, timeout)
 
     def connect_signals(self):
@@ -212,15 +212,8 @@ class CanvasApp(QMainWindow):
             if t not in unique_terms:
                 unique_terms.append(t)
         unique_terms.sort(key=lambda t: t['id'], reverse=True)
-        # unique_terms[-1]['name'] = 'No Term'
+        unique_terms[-1]['name'] = 'No Term' # change name of item with id = 1
         return unique_terms
-
-    def get_courses_separated(self):
-        favorites = self.user.get_favorite_courses(include=['term', 'favorites'])
-        favorite_ids = [c.id for c in favorites]
-        all_courses = list(self.user.get_courses(include=['term', 'favorites']))
-        others = [c for c in all_courses if c.id not in favorite_ids]
-        return favorites, others
 
     def add_courses(self):
         root = self.model.invisibleRootItem()
