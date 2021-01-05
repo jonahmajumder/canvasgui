@@ -15,6 +15,8 @@ from PyQt5.QtCore import *
 from bs4 import BeautifulSoup
 from urllib import parse
 
+from echo360 import get_formdata, auth_echo_session
+
 from canvasapi import Canvas
 from canvasapi.favorite import Favorite
 from canvasapi.exceptions import Unauthorized, ResourceDoesNotExist
@@ -425,8 +427,12 @@ class CourseItem(CanvasItem):
         tabs = [t for t in self.obj.get_tabs() if t.type == 'external']
         if len(tabs) > 0:
             for t in tabs:
-                item = TabItem(object=t)
-                self.append_item_row(item)
+                if t.label == 'Echo360':
+                    item = Echo360Item(object=t)
+                    self.append_item_row(item)
+                else:
+                    item = TabItem(object=t)
+                    self.append_item_row(item)
         else:
             self.setEnabled(False)
 
@@ -497,6 +503,44 @@ class TabItem(CanvasItem):
 
     def dblClickFcn(self, **kwargs):
         self.open(**kwargs)
+
+class Echo360Item(TabItem):
+    """
+    docstring for Echo360Item
+    """
+    def __init__(self, *args, **kwargs):
+        super(Echo360Item, self).__init__(*args, **kwargs)
+
+        # this is very inefficient, don't need one for each item!
+        self.session = auth_echo_session()
+
+        self.homeurl = None        
+
+    def get_homeurl(self):
+        r1 = self.session.get(self.retrieve_sessionless_url())
+        assert r1.ok
+
+        soup = BeautifulSoup(r1.text, 'html.parser')
+        postform = soup.find(id='tool_form')
+        data = get_formdata(postform)
+
+        r2 = self.session.post(postform['action'], data=data)
+        assert r2.ok
+
+        self.homeurl = r2.url
+
+    def get_syllabus(self):
+        if self.homeurl is None:
+            self.get_homeurl()
+
+        r = self.session.get(self.homeurl.replace('home', 'syllabus'))
+        assert r.ok
+
+        js = r.json()
+
+        assert js['status'] == 'ok'
+
+        return js['data']
 
 class ExternalUrlItem(CanvasItem):
     """
