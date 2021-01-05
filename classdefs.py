@@ -879,6 +879,9 @@ class DateItem(QStandardItem):
 
         self.setText(self.smart_formatted())
 
+    def run_context_menu(self, point):
+        self.item.run_context_menu(point)
+
     @staticmethod
     def hasattr_not_none(obj, attr):
     # check if has attr and also if that attr is not-None

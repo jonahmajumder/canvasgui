@@ -203,8 +203,8 @@ class CanvasApp(QMainWindow):
 
     def tree_right_click(self, point):
         sourceindex = self.proxyModel.mapToSource(self.tree.indexAt(point))
-        canvasitem = self.model.invisibleRootItem().child(sourceindex.row(), 0)
-        canvasitem.run_context_menu(self.tree.viewport().mapToGlobal(point))
+        item = self.model.itemFromIndex(sourceindex)
+        item.run_context_menu(self.tree.viewport().mapToGlobal(point))
 
         # for item in self.selected_canvasitems():
         #     item.run_context_menu(self.tree.viewport().mapToGlobal(point))
