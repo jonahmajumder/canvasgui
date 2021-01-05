@@ -4,7 +4,7 @@ This project builds on the open-source Python package [CanvasAPI](https://canvas
 
 Below is a depiction of content from my own classes, viewed at the "module" level.
 
-<img src="screenshot.png" width="600">
+<img src="screenshot.png" width="800">
 
 Login is accomplished with an OAuth token (generated online via the user's profile page, as explained [here](https://canvas.instructure.com/doc/api/file.oauth.html#manual-token-generation)). That token, along with an institution-specific base URL, can be included in a file or entered manually.
 
