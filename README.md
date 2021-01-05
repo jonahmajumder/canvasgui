@@ -8,12 +8,12 @@ Below is a depiction of content from my own classes, viewed at the "module" leve
 
 Login is accomplished with an OAuth token (generated online via the user's profile page, as explained [here](https://canvas.instructure.com/doc/api/file.oauth.html#manual-token-generation)). That token, along with an institution-specific base URL, can be included in a file or entered manually.
 
-The (hidden) preferences file is called ".canvasdefaults" and lives in the user's home directory (i.e. /Users/<username>/.canvasdefaults). It is a json file with the following keys:
+The (hidden) preferences file is called `.canvasdefaults` and lives in the user's home directory (i.e. /Users/\<username\>/.canvasdefaults). It is a json file with the following keys:
 ```
 "baseurl": <institution-specific url>
 "token": <personal generated oauth token>
 "downloadfolder": <path to a local folder>
-"defaultcontent": <"modules", "files", "assignments", or "tools">
+"defaultcontent": <"modules", "files", "assignments", "tools", or "announcements">
 ```
 If any of these are deemed invalid (or no file is detected), a GUI will prompt the user to fill them in. This interface also allows the user to save entered credentials for future use.
 
@@ -25,7 +25,7 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 - [dateutil](https://pypi.org/project/python-dateutil/)
 - [BeautifulSoup](https://pypi.org/project/beautifulsoup4/)
 
-Installing these packages via pip will automatically trigger installation of all other dependencies. See requirements.txt for the full list.
+Installing these packages via pip will automatically trigger installation of all other dependencies. See `requirements.txt` for the full list.
 
 ### To do list:
 
