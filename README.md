@@ -32,9 +32,10 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Pereferences UI allowing specification of login credentials, download destination, default view
 - [X] Autosaving/setting defaults file
 - [X] Editing of preferences during app operation
-- [ ] Test changing user/auth credentials during app operation (i.e. resetting)
+- [X] Test changing user/auth credentials during app operation (i.e. resetting)
 - [X] Context menus for everything but expand
 - [X] Different course icons to indicate current content mode
+- [X] Course nicknaming by editing item (right click -> Rename)
 - [X] Folder (recursive) downloading
 - [X] Module downloading
 - [X] Announcement/discussion topic support
@@ -47,6 +48,7 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Replace terminal printed lines with status bar text
 - [X] Dealing with duplicate children
 - [X] Deployment into macOS (.app) standalone application
+- [X] Testing standalone .app on other machine
 - [ ] Create menu for showing profile, opening preferences editor, quitting, checking connection?
 - [ ] Application-level error handling?
 - [ ] Multithreaded retrieval of data for "expand all" (back burner)

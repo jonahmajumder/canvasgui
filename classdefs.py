@@ -22,8 +22,6 @@ from appcontrol import convert, CONVERTIBLE_EXTENSIONS
 from guihelper import disp_html, confirm_dialog
 from locations import ResourceFile
 
-SORTROLE = Qt.UserRole
-
 class SeparatorItem(QStandardItem):
     """
     class to serve as divider (no functionality)
@@ -44,23 +42,13 @@ class CanvasItem(QStandardItem):
     general parent class for tree elements with corresponding canvasapi objects
     (not intended to be instantiated directly)
     """
+    SORTROLE = Qt.UserRole
 
     def __init__(self, *args, **kwargs):
         self.obj = kwargs.pop('object', None)
         super(CanvasItem, self).__init__(*args, **kwargs)
-        if hasattr(self.obj, 'name'):
-            self.name = self.obj.name
-        elif hasattr(self.obj, 'title'):
-            self.name = self.obj.title
-        elif hasattr(self.obj, 'display_name'):
-            self.name = self.obj.display_name
-        elif hasattr(self.obj, 'label'):
-            self.name = self.obj.label
-        else:
-            self.name = str(self.obj)
 
-        self.setText(self.name)
-        self.setData(self.name, SORTROLE)
+        self.process_name()
 
         self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
@@ -73,6 +61,21 @@ class CanvasItem(QStandardItem):
 
     def api_get(self, urlpath):
         return self.obj._requester.request('GET', urlpath)
+
+    def process_name(self):
+        if hasattr(self.obj, 'name'):
+            self.name = self.obj.name
+        elif hasattr(self.obj, 'title'):
+            self.name = self.obj.title
+        elif hasattr(self.obj, 'display_name'):
+            self.name = self.obj.display_name
+        elif hasattr(self.obj, 'label'):
+            self.name = self.obj.label
+        else:
+            self.name = str(self.obj)
+
+        self.setText(self.name)
+        self.setData(self.name, self.SORTROLE)
 
     def identifier(self):
         if isinstance(self, PageItem):
@@ -98,6 +101,9 @@ class CanvasItem(QStandardItem):
         pass
 
     def download(self, **kwargs):
+        pass
+
+    def itemChangeFcn(self):
         pass
 
     def expand_recursive(self):
@@ -159,8 +165,20 @@ class CanvasItem(QStandardItem):
                     r = self.api_get(urlparts.path)
                     newpath = 'api/v1/' / Path(urlparts.path).relative_to('/')
                     newparts = urlparts._replace(query='', path=str(newpath))
-                    l.attrs['data-api-returntype'] = 'File'
                     l.attrs['data-api-endpoint'] = parse.urlunsplit(newparts)
+
+                    info = self.parse_api_url(l.attrs['data-api-endpoint'])
+                    if 'files' in info:
+                        l.attrs['data-api-returntype'] = 'File'
+                    elif 'pages' in info:
+                        l.attrs['data-api-returntype'] = 'Page'
+                    elif 'quizzes' in info:
+                        l.attrs['data-api-returntype'] = 'Quiz'
+                    elif 'assignments' in info:
+                        l.attrs['data-api-returntype'] = 'Assignment'
+                    else:
+                        raise ValueError('Unknown instructure_file_link type, url: {}'.format(l.attrs['data-api-endpoint']))
+
                 except ResourceDoesNotExist:
                     pass
 
@@ -272,16 +290,22 @@ class CourseItem(CanvasItem):
 
         super(CourseItem, self).__init__(*args, **kwargs)
 
+        self.setEditable(True) # item is editable but nothing causes editing except explicit
+
         self.init_from_obj()
 
     def refresh(self):
         newobj = self.gui.canvas.get_course(self.obj.id, include=['term', 'favorites'])
         self.obj = newobj
+        self.process_name()
         self.init_from_obj()
         self.gui.proxyModel.invalidateFilter()
 
     def init_from_obj(self):
         self.CONTEXT_MENU_ACTIONS = []
+        self.nickname = self.gui.canvas.get_course_nickname(self.obj.id)
+        self.has_nickname = self.nickname is not None
+
         if self.obj.is_favorite:
             self.favoriteobj = Favorite(self.obj._requester, {'context_id': self.obj.id, 'context_type': 'course'})
             self.CONTEXT_MENU_ACTIONS.extend([
@@ -292,6 +316,10 @@ class CourseItem(CanvasItem):
             self.CONTEXT_MENU_ACTIONS.extend([
                 {'displayname': 'Add Favorite', 'function': self.add_favorite}
             ])
+
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Edit Nickname', 'function': self.edit_text}
+        ])
 
         self.make_context_menu()
 
@@ -307,6 +335,25 @@ class CourseItem(CanvasItem):
 
         self.favoroteobj = self.favoriteobj.remove()
         self.refresh()
+
+    def set_nickname(self, newname):
+        if newname.strip() == '':
+            self.nickname.remove()
+            self.setText(self.nickname.name)
+        else:
+            self.gui.canvas.set_course_nickname(self.obj.id, newname)
+
+        # most foolproof would be to call self.refresh here,
+        # but that causes gui to hang with edit field open
+        # (something in self.init_from_obj is responsible)
+        self.nickname = self.gui.canvas.get_course_nickname(self.obj.id)
+        self.has_nickname = self.nickname is not None
+
+    def edit_text(self):
+        self.gui.tree.edit(self.gui.proxyModel.mapFromSource(self.index()))
+
+    def itemChangeFcn(self):
+        self.set_nickname(self.text())
 
     def expand(self, **kwargs):
         self.expanders[self.content]()
@@ -828,7 +875,7 @@ class DateItem(QStandardItem):
 
         self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-        self.setData(self.as_qdt(), SORTROLE)
+        self.setData(self.as_qdt(), CanvasItem.SORTROLE)
 
         self.setText(self.smart_formatted())
 
@@ -905,7 +952,7 @@ class CustomProxyModel(QSortFilterProxyModel):
 
         super(QSortFilterProxyModel, self).__init__(*args, **kwargs)
 
-        self.setSortRole(SORTROLE)
+        self.setSortRole(CanvasItem.SORTROLE)
 
     def only_favorites_changed(self, newval):
         self.ONLY_FAVORITES = newval
@@ -1040,10 +1087,10 @@ class CheckableComboBox(QComboBox):
         self.setCurrentIndex(0)
 
         # remove selection coloring so user doesn't see
-        self.setStyleSheet("""
-            selection-background-color: rgba(0, 0, 0, 0%);
-            selection-color: rgb(0, 0, 0);
-        """)
+        # self.setStyleSheet("""
+        #     selection-background-color: rgba(0, 0, 0, 0%);
+        #     selection-color: rgb(0, 0, 0);
+        # """)
 
 
     def addItem(self, text, checked=False, tag=None):

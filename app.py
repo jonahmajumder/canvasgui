@@ -10,7 +10,10 @@ from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 
 from guihelper import disp_html
-from classdefs import CanvasItem, CourseItem, SeparatorItem, CustomProxyModel, SORTROLE
+from classdefs import (
+    CanvasItem, CourseItem, SeparatorItem,
+    CustomProxyModel, CustomStyledItemDelegate
+)
 from classdefs import SliderHLayout, CheckableComboBox
 from utils import Preferences
 # from locations import ResourceFile
@@ -27,6 +30,7 @@ class CanvasApp(QMainWindow):
 
         self.app.setAttribute(Qt.AA_UseHighDpiPixmaps)
         # self.app.setWindowIcon(QIcon(ResourceFile('icons/icon.icns')))
+
         self.setWindowTitle(self.TITLE)
 
         self.preferences = Preferences(self)
@@ -139,6 +143,7 @@ class CanvasApp(QMainWindow):
         self.model.setHorizontalHeaderLabels(['Course', 'Date Created'])
         self.tree.setAlternatingRowColors(True)
         self.tree.setSortingEnabled(True)
+        self.tree.setEditTriggers(QTreeView.NoEditTriggers)
         self.tree.setModel(self.proxyModel)
         self.tree.header().setSortIndicator(1, Qt.DescendingOrder)
         self.tree.setSelectionMode(QTreeView.ExtendedSelection)
@@ -163,6 +168,11 @@ class CanvasApp(QMainWindow):
 
         self.statusBar()
 
+        self.bar = self.menuBar()
+        self.file = self.bar.addMenu('File')
+        self.file.addAction('Show User Profile', self.show_user)
+        self.file.addAction('Edit Preferences', self.edit_preferences)
+
     def center_on_screen(self):
         self.setGeometry(
             QStyle.alignedRect(
@@ -179,6 +189,8 @@ class CanvasApp(QMainWindow):
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self.tree_right_click)
 
+        self.model.itemChanged.connect(lambda item: item.itemChangeFcn())
+
         self.expandButton.clicked.connect(self.expand_all)
         self.contentTypeComboBox.currentIndexChanged.connect(self.contentTypeChanged)
         self.favoriteSlider.valueChanged.connect(self.proxyModel.only_favorites_changed)
@@ -190,8 +202,12 @@ class CanvasApp(QMainWindow):
             item.dblClickFcn(contentTypeIndex=self.contentTypeComboBox.currentIndex())
 
     def tree_right_click(self, point):
-        for item in self.selected_canvasitems():
-            item.run_context_menu(self.tree.viewport().mapToGlobal(point))
+        sourceindex = self.proxyModel.mapToSource(self.tree.indexAt(point))
+        canvasitem = self.model.invisibleRootItem().child(sourceindex.row(), 0)
+        canvasitem.run_context_menu(self.tree.viewport().mapToGlobal(point))
+
+        # for item in self.selected_canvasitems():
+        #     item.run_context_menu(self.tree.viewport().mapToGlobal(point))
 
     def selected_canvasitems(self):
         proxyindexes = self.tree.selectedIndexes()
@@ -263,7 +279,7 @@ class CanvasApp(QMainWindow):
         if len(selected) > 0:
             to_expand = selected
         else: # all top level items (i.e. courses)
-            to_expand = [self.model.child(i, 0) for i in range(self.model.invisibleRootItem().item.rowCount())]
+            to_expand = [self.model.invisibleRootItem().child(i, 0) for i in range(self.model.rowCount())]
 
         for item in to_expand:
             item.expand_recursive()

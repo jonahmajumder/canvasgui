@@ -1,6 +1,7 @@
 # secret files
 
 defaults.json
+tikudefaults.json
 secrets.py
 
 # other irrelevant stuff

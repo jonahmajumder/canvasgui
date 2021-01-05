@@ -58,6 +58,32 @@ def disp_html(htmlstr, title='HTML'):
     )
     return dlg.exec_()
 
+def alert(text, title='Alert'):
+    m = QMainWindow()
+
+    dlg = QDialog(m)
+    dlg.setWindowTitle(title)
+
+    buttonBox = QDialogButtonBox(QDialogButtonBox.Ok)
+    buttonBox.accepted.connect(dlg.accept)
+
+    layout = QVBoxLayout()
+    textLayout = QHBoxLayout()
+    textLayout.addWidget(QLabel(text))
+    textLayout.setAlignment(Qt.AlignCenter)
+    layout.addLayout(textLayout)
+    layout.addWidget(buttonBox)
+    dlg.setLayout(layout)
+
+    m.setGeometry(
+        QStyle.alignedRect(
+            Qt.LeftToRight,
+            Qt.AlignCenter,
+            QSize(100,100),
+            m.screen().geometry())
+    )
+    return dlg.exec_()
+
 if __name__ == '__main__':
     app = QApplication([])
     s = """
@@ -65,7 +91,9 @@ if __name__ == '__main__':
     <p><i>This text is italic</i></p>
     <p>This is<sub> subscript</sub> and <sup>superscript</sup></p>
     """
-    disp_html(s)
+    alert(s)
+
+
     
 
 
