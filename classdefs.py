@@ -87,8 +87,10 @@ class CanvasItem(QStandardItem):
         return (self.identifier() == other.identifier())
 
     def append_item_row(self, item):
-        children = [self.child(r, 0) for r in range(self.rowCount())]
-        if not item in children:
+        children = self.children()
+        lineage = self.lineage()
+
+        if not item in children and not item in lineage:
             row = []
             row.append(item)
             row.append(item.date)
@@ -112,7 +114,7 @@ class CanvasItem(QStandardItem):
             ch.expand_recursive()
 
     def children(self):
-        return [self.child(i, 0) for i in range(self.rowCount())]
+        return [self.child(r, 0) for r in range(self.rowCount())]
 
     def make_context_menu(self):
         self.contextMenu = QMenu()
@@ -129,6 +131,13 @@ class CanvasItem(QStandardItem):
             return self
         else:
             return self.parent().course()
+
+    def lineage(self, lineage=[]):
+        lineage = [self] + lineage # highest up will be first
+        if self.parent() is None:
+            return lineage
+        else:
+            return self.parent().lineage(lineage)
 
     def print(self, text):
         self.course().gui.print(text)
@@ -295,16 +304,21 @@ class CourseItem(CanvasItem):
         self.init_from_obj()
 
     def refresh(self):
-        newobj = self.gui.canvas.get_course(self.obj.id, include=['term', 'favorites'])
-        self.obj = newobj
+        self.refresh_course_obj()
         self.process_name()
         self.init_from_obj()
         self.gui.proxyModel.invalidateFilter()
 
-    def init_from_obj(self):
-        self.CONTEXT_MENU_ACTIONS = []
+    def refresh_course_obj(self):
+        self.obj = self.gui.canvas.get_course(self.obj.id, include=['term', 'favorites'])
+
+    def get_nickname(self):
         self.nickname = self.gui.canvas.get_course_nickname(self.obj.id)
         self.has_nickname = self.nickname is not None
+
+    def init_from_obj(self):
+        self.CONTEXT_MENU_ACTIONS = []
+        self.get_nickname()
 
         if self.obj.is_favorite:
             self.favoriteobj = Favorite(self.obj._requester, {'context_id': self.obj.id, 'context_type': 'course'})
@@ -346,14 +360,19 @@ class CourseItem(CanvasItem):
         # most foolproof would be to call self.refresh here,
         # but that causes gui to hang with edit field open
         # (something in self.init_from_obj is responsible)
-        self.nickname = self.gui.canvas.get_course_nickname(self.obj.id)
-        self.has_nickname = self.nickname is not None
+        # hacky solution: do everything in that method except init_from_obj
+        self.refresh_course_obj()
+        self.process_name()
+        self.gui.proxyModel.invalidateFilter()
 
     def edit_text(self):
         self.gui.tree.edit(self.gui.proxyModel.mapFromSource(self.index()))
 
     def itemChangeFcn(self):
-        self.set_nickname(self.text())
+        # this function is called for all item changes (not just editing)
+        # only change nickname if text was changed
+        if self.text() != self.name:
+            self.set_nickname(self.text())
 
     def expand(self, **kwargs):
         self.expanders[self.content]()

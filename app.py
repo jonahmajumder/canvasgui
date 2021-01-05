@@ -284,7 +284,7 @@ class CanvasApp(QMainWindow):
         for item in to_expand:
             item.expand_recursive()
 
-        self.print('Load time: {:.2f}'.format(time() - start_time))
+        self.print('Load time: {:.2f} s'.format(time() - start_time))
 
     def generate_profile_html(self):
         data = self.user.get_profile()

@@ -34,6 +34,7 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Editing of preferences during app operation
 - [X] Test changing user/auth credentials during app operation (i.e. resetting)
 - [X] Context menus for everything but expand
+- [ ] Handling of double/right clicking on multiple items
 - [X] Different course icons to indicate current content mode
 - [X] Course nicknaming by editing item (right click -> Rename)
 - [X] Folder (recursive) downloading
