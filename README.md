@@ -35,28 +35,40 @@ Installing these packages via pip will automatically trigger installation of all
 
 ### To do list:
 
+##### Preferences
 - [X] Pereferences UI allowing specification of login credentials, download destination, default view
 - [X] Autosaving/setting defaults file
 - [X] Editing of preferences during app operation
 - [X] Test changing user/auth credentials during app operation (i.e. resetting)
+- [ ] Conveying information about echo360 credentials to user (e.g. included, incorrect, etc.-- break preferences into sections?)
+
+##### Tree Item Interaction
 - [X] Context menus for everything but expand
 - [ ] Handling of right clicking on multiple items
-- [X] Different course icons to indicate current content mode
 - [X] Course nicknaming by editing item (right click -> Rename)
 - [X] Folder (recursive) downloading
 - [X] Module downloading
-- [X] Announcement/discussion topic support
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
-- [X] Filtering by semester
-- [X] Better column resizing
-- [X] Convert from widget to model architecture
-- [X] Sorting by date
+
+##### Content Mode Handling
+- [X] Different course icons to indicate current content mode
+- [X] Announcement/discussion topic support
 - [X] Select external tools from "tabs" rather than directly
+- [ ] Convert content handling to filter action (so all data persists but only relevant content shown)
+
+##### Overall GUI Functioning
+- [X] Better column resizing
+- [X] Sorting by date
 - [X] Replace terminal printed lines with status bar text
 - [X] Dealing with duplicate children
+- [X] Filtering by semester
+
+##### Overall App Operation
+- [X] Convert from widget to model architecture
 - [X] Deployment into macOS (.app) standalone application
 - [X] Testing standalone .app on other machine
-- [ ] Conveying information about echo360 credentials to user (e.g. included, incorrect, etc.)
-- [ ] Create menu for showing profile, opening preferences editor
+- [ ] Create top menu for showing profile, opening preferences editor, about/credits/README/etc.
 - [ ] Application-level error handling?
 - [ ] Multithreaded retrieval of data for "expand all" (back burner)
+
+

@@ -12,7 +12,7 @@ from canvasapi.exceptions import Unauthorized
 from guihelper import disp_html
 from echo360 import auth_echo_session
 from classdefs import (
-    CanvasItem, CourseItem, SeparatorItem,
+    CanvasItem, CourseItem,
     CustomProxyModel, CustomStyledItemDelegate
 )
 from classdefs import SliderHLayout, CheckableComboBox

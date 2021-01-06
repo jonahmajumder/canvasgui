@@ -2,6 +2,7 @@ import sys
 from time import time
 import json
 import os
+import re
 from pathlib import Path
 import webbrowser
 import pytz
@@ -24,24 +25,91 @@ from appcontrol import convert, CONVERTIBLE_EXTENSIONS
 from guihelper import disp_html, confirm_dialog
 from locations import ResourceFile
 
-class SeparatorItem(QStandardItem):
+class CustomItem(QStandardItem):
     """
-    class to serve as divider (no functionality)
+    base class for everything!
+    (not intended to be instantiated directly)
     """
     def __init__(self, *args, **kwargs):
-        super(SeparatorItem, self).__init__(*args, **kwargs)
+        super(CustomItem, self).__init__(*args, **kwargs)
 
-        self.setFlags(Qt.NoItemFlags)
+        self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
-        # self.setBackground(0, QBrush(QColor('black')))
-        # self.setBackground(1, QBrush(QColor('black')))
+        self.date = DateItem(item=self)
 
-    def dblClickFcn(self):
+        self.CONTEXT_MENU_ACTIONS = []
+        self.update_context_menu()
+
+    def dblClickFcn(self, **kwargs):
         pass
 
-class CanvasItem(QStandardItem):
+    def expand(self, **kwargs):
+        pass
+
+    def download(self, **kwargs):
+        pass
+
+    def itemChangeFcn(self):
+        pass
+
+    def expand_recursive(self):
+        self.expand()
+        for ch in self.children():
+            ch.expand_recursive()
+
+    def lineage(self, lineage=[]):
+        lineage = [self] + lineage # highest up will be first
+        if self.parent() is None:
+            return lineage
+        else:
+            return self.parent().lineage(lineage)
+
+    def children(self):
+        return [self.child(r, 0) for r in range(self.rowCount())]
+
+    def append_item_row(self, item):
+        children = self.children()
+        lineage = self.lineage()
+
+        if not item in children and not item in lineage:
+            row = []
+            row.append(item)
+            row.append(item.date)
+            self.appendRow(row)
+
+    def update_context_menu(self):
+        self.contextMenu = QMenu()
+        for d in self.CONTEXT_MENU_ACTIONS:
+            action = self.contextMenu.addAction(d['displayname'])
+            action.triggered.connect(d['function'])
+
+    def run_context_menu(self, point):
+        if len(self.contextMenu.actions()) > 0:
+            action = self.contextMenu.exec_(point)
+            
+    def course(self):
+        # recursively find topmost parent
+        if self.parent() is None:
+            return self
+        else:
+            return self.parent().course()
+
+    def print(self, text):
+        self.course().gui.print(text)
+
+    def open_and_notify(self, url):
+        self.print('Opening linked url:\n{}'.format(url))
+        webbrowser.open(url)
+
+    def __eq__(self, other):
+        return (self.identifier() == other.identifier())
+
+    def identifier(self):
+        raise Exception('Identifier must be subclassed for class {}!'.format(type(self).__name__))
+
+class CanvasItem(CustomItem):
     """
-    general parent class for tree elements with corresponding canvasapi objects
+    intermediate parent class for tree elements with corresponding canvasapi objects
     (not intended to be instantiated directly)
     """
     SORTROLE = Qt.UserRole
@@ -51,12 +119,6 @@ class CanvasItem(QStandardItem):
         super(CanvasItem, self).__init__(*args, **kwargs)
 
         self.process_name()
-
-        self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
-
-        self.date = DateItem(item=self)
-
-        self.CONTEXT_MENU_ACTIONS = []
 
     def auth_get(self, url):
         return self.obj._requester.request('GET', _url=url)
@@ -84,65 +146,6 @@ class CanvasItem(QStandardItem):
             return self.obj.page_id
         else:
             return self.obj.id
-
-    def __eq__(self, other):
-        return (self.identifier() == other.identifier())
-
-    def append_item_row(self, item):
-        children = self.children()
-        lineage = self.lineage()
-
-        if not item in children and not item in lineage:
-            row = []
-            row.append(item)
-            row.append(item.date)
-            self.appendRow(row)
-
-    def dblClickFcn(self, **kwargs):
-        pass
-
-    def expand(self, **kwargs):
-        pass
-
-    def download(self, **kwargs):
-        pass
-
-    def itemChangeFcn(self):
-        pass
-
-    def expand_recursive(self):
-        self.expand()
-        for ch in self.children():
-            ch.expand_recursive()
-
-    def children(self):
-        return [self.child(r, 0) for r in range(self.rowCount())]
-
-    def make_context_menu(self):
-        self.contextMenu = QMenu()
-        for d in self.CONTEXT_MENU_ACTIONS:
-            action = self.contextMenu.addAction(d['displayname'])
-            action.triggered.connect(d['function'])
-
-    def run_context_menu(self, point):
-        if len(self.contextMenu.actions()) > 0:
-            action = self.contextMenu.exec_(point)
-            
-    def course(self):
-        if self.parent() is None:
-            return self
-        else:
-            return self.parent().course()
-
-    def lineage(self, lineage=[]):
-        lineage = [self] + lineage # highest up will be first
-        if self.parent() is None:
-            return lineage
-        else:
-            return self.parent().lineage(lineage)
-
-    def print(self, text):
-        self.course().gui.print(text)
 
     def safe_get_folders(self, folder=None):
         parent = folder if folder else self.obj
@@ -268,10 +271,6 @@ class CanvasItem(QStandardItem):
             raise Exception('Odd number of path elements to parse ({})'.format(pathstr))
         return info
 
-    def open_and_notify(self, url):
-        self.print('Opening linked url:\n{}'.format(url))
-        webbrowser.open(url)
-
 class CourseItem(CanvasItem):
     """
     class for tree elements with corresponding canvasapi "course" objects
@@ -338,7 +337,7 @@ class CourseItem(CanvasItem):
             {'displayname': 'Edit Nickname', 'function': self.edit_text}
         ])
 
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile(self.CONTENT_TYPES[self.content]['icon'])))
 
@@ -467,7 +466,7 @@ class ExternalToolItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
         ])
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile('icons/link.png')))
 
@@ -493,6 +492,8 @@ class TabItem(CanvasItem):
             {'displayname': 'Open', 'function': self.open}
         ])
 
+        self.update_context_menu()
+
         self.setIcon(QIcon(ResourceFile('icons/link.png')))
 
     def open(self, **kwargs):
@@ -517,9 +518,9 @@ class Echo360Item(TabItem):
 
         self.setIcon(QIcon(ResourceFile('icons/echo360.png')))
 
-        self.set_homeurl()
+        self.get_urls()
 
-    def set_homeurl(self):
+    def get_urls(self):
         r1 = self.session.get(self.retrieve_sessionless_url())
         assert r1.ok
 
@@ -532,15 +533,116 @@ class Echo360Item(TabItem):
 
         self.homeurl = r2.url
 
+        parts = parse.urlsplit(self.homeurl)
+        path = Path(parts.path)
+        self.section_id = path.parent.name
+        self.urlparts = parts._replace(path=str(path.parent))
+
+    def make_url(self, relpath):
+        currentpath = Path(self.urlparts.path)
+        newpath = currentpath / relpath
+        newparts = self.urlparts._replace(path=str(newpath))
+        return parse.urlunsplit(newparts)
+
     def get_syllabus(self):
-        r = self.session.get(self.homeurl.replace('home', 'syllabus'))
+        r = self.session.get(self.make_url('syllabus'))
         assert r.ok
 
         js = r.json()
-
         assert js['status'] == 'ok'
-
         return js['data']
+
+    def get_lectures(self):
+        syllabus = self.get_syllabus()
+        return [l['lesson'] for l in syllabus]
+
+    def expand(self, **kwargs):
+        lectures = self.get_lectures()
+        for lec in lectures:
+            item = Echo360LectureItem(json=lec)
+            self.append_item_row(item)
+
+        if len(lectures) == 0:
+            self.setEnabled(False)
+
+    def open(self, **kwargs):
+        self.open_and_notify(self.homeurl)
+
+    def dblClickFcn(self, **kwargs):
+        self.expand(**kwargs)
+
+class Echo360LectureItem(CustomItem):
+    """
+    class for individual echo360 lectures
+    notably NOT a CanvasItem (and has no canvas obj)
+    """
+    def __init__(self, *args, **kwargs):
+        json = kwargs.pop('json', None)
+
+        # create obj so date class is happy
+        attrdict = json
+        self.obj = type('Lecture', (object,), attrdict)
+
+        super(Echo360LectureItem, self).__init__(*args, **kwargs)
+
+        self.name = self.obj.lesson['name']
+
+        self.setText(self.name)
+        self.setData(self.name, CanvasItem.SORTROLE)
+
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Open', 'function': self.open},
+            {'displayname': 'Download', 'function': self.download}
+        ])
+        self.update_context_menu()
+
+        self.setIcon(QIcon(ResourceFile('icons/video.png')))
+
+        self.basepath = Path('/lesson/{}'.format(self.obj.lesson['id']))
+
+    def make_url(self, path):
+        newparts = self.parent().urlparts._replace(path=str(path))
+        return parse.urlunsplit(newparts)
+
+    def identifier(self):
+        return self.obj.lesson['id']
+
+    def dblClickFcn(self, **kwargs):
+        self.open(**kwargs)
+
+    def open(self, **kwargs):
+        openpath = self.basepath / 'classroom'
+        self.open_and_notify(self.make_url(openpath))
+
+    def make_downloadurl(self, **kwargs):
+        hd = kwargs.get('hidef', True)
+
+        online_filename = 'hd1.mp4' if hd else 'sd1.mp4'
+        media_id = self.obj.medias[0]['id']
+        downloadpath = Path('media/download/{0}/video/{1}'.format(media_id, online_filename))
+        return self.make_url(downloadpath)
+
+    def download(self, **kwargs):
+        confirm = kwargs.get('confirm', True)
+        loc = kwargs.get('location', self.course().downloadfolder)
+
+        u = self.make_downloadurl(**kwargs)
+
+        if confirm:
+            confirmed = confirm_dialog('Download video {}?'.format(self.name), title='Confirm Download')
+        else:
+            confirmed = True
+
+        if confirmed:
+            newpath = (Path(loc) / self.name).with_suffix('.mp4') # build local file Path obj
+
+            if not newpath.exists():
+                # download file here
+                self.open_and_notify(u)
+                self.print('{} downloaded.'.format(newpath.name))
+            else:
+                self.print('{0} already exists at {1}; file not replaced.'.format(newpath.name, loc))
+
 
 class ExternalUrlItem(CanvasItem):
     """
@@ -553,7 +655,7 @@ class ExternalUrlItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
         ])
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile('icons/link.png')))
 
@@ -573,7 +675,7 @@ class ModuleItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Download Module', 'function': self.download}
         ])
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile('icons/module.png')))
 
@@ -652,7 +754,7 @@ class ModuleItemItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
         ])
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile('icons/link.png')))
 
@@ -675,7 +777,7 @@ class FolderItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Download Folder', 'function': self.download}
         ])
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile('icons/folder.png')))
 
@@ -720,7 +822,7 @@ class FileItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Download', 'function': self.download}
         ])
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile('icons/file.png')))
 
@@ -767,7 +869,7 @@ class PageItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Display HTML', 'function': self.display}
         ])
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile('icons/html.png')))
 
@@ -793,7 +895,7 @@ class QuizItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
         ])
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile('icons/quiz.png')))
 
@@ -816,7 +918,7 @@ class DiscussionItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Display HTML', 'function': self.display}
         ])
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile('icons/discussion.png')))
 
@@ -867,7 +969,7 @@ class AnnouncementItem(CanvasItem):
             ])
             self.setIcon(QIcon(ResourceFile('icons/announcement_unread_blue.png')))
 
-        self.make_context_menu()
+        self.update_context_menu()
 
     def refresh(self):
         newobj = self.course().obj.get_discussion_topic(self.obj)
@@ -902,7 +1004,7 @@ class AssignmentItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
         ])
-        self.make_context_menu()
+        self.update_context_menu()
 
         self.setIcon(QIcon(ResourceFile('icons/assignment.png')))
 
@@ -932,9 +1034,8 @@ class DateItem(QStandardItem):
 
     def __init__(self, *args, **kwargs):
         self.item = kwargs.pop('item')
-        self.obj = self.item.obj
         super(DateItem, self).__init__(*args, **kwargs)
-        self.datetime = self.datetime_from_obj()
+        self.datetime = self.datetime_from_obj(self.item.obj)
 
         self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
@@ -956,26 +1057,30 @@ class DateItem(QStandardItem):
         else:
             return False
 
-    def parse_datestr(self):
-        if self.hasattr_not_none(self.obj, 'created_at'):
-            return self.obj.created_at
-        elif self.hasattr_not_none(self.obj, 'completed_at'):
-            return self.obj.completed_at
-        elif self.hasattr_not_none(self.obj, 'unlock_at'):
-            return self.obj.unlock_at
-        elif self.hasattr_not_none(self.obj, 'due_at'):
-            return self.obj.due_at
-        elif self.hasattr_not_none(self.obj, 'url'): # do this one last because can't try another after
-            jsdata = self.item.auth_get(self.obj.url).json()
+    def datestr_from_obj(self, obj):
+        datestr_attrs = [
+            'created_at',
+            'completed_at',
+            'unlock_at',
+            'due_at',
+            'endTimeUTC'
+        ]
+
+        for attr in datestr_attrs:
+            if self.hasattr_not_none(obj, attr):
+                return getattr(obj, attr)
+
+        if self.hasattr_not_none(obj, 'url'): # do this one last because can't try another after
+            jsdata = self.item.auth_get(obj.url).json()
             if 'created_at' in jsdata:
                 return jsdata['created_at']
-            else:
-                return None
-        else:
-            return None
 
-    def datetime_from_obj(self):
-        s = self.parse_datestr()
+        # if fcn reaches here it means all others failed -- return none
+        
+        return None
+
+    def datetime_from_obj(self, obj):
+        s = self.datestr_from_obj(obj)
         if s is not None:
             # make datetime (which will be in UTC timc) and convert to EST
             return isoparse(s).astimezone(self.TIMEZONE)
