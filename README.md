@@ -19,7 +19,7 @@ If any of these are deemed invalid (or no file is detected), a GUI will prompt t
 
 ### Echo360 Support
 
-My instution uses the [Echo360](https://echo360.com/) platform to host recorded lectures. The Canvas API presents this feature as an "external tool" without much access to the associated data. Because this is a feature I use frequently, I built the ability to access this data into my app. While the Echo360 platform exposes a RESTful API, it is not accessible to the average (student) user. Therefore, data is simply accessed via an authenticated `requests.session`. This means that the only credentials needed are those normally used with the web interface.
+My instution uses the [Echo360](https://echo360.com/) platform to host recorded lectures. The Canvas API presents this feature as an "external tool" without much access to the associated data. Because this is a feature I use frequently, I built the ability to access this data into my app. While the Echo360 platform exposes a RESTful API, it is not accessible to the average (student) user. Therefore, data is simply accessed via an authenticated `requests.session`. This means that the only credentials needed are those normally used with the [web interface](https://echo360.org/).
 
 Credentials can be included in a file analagous to `.canvasdefaults`, called `.echocredentials`, also located in the user's home directory (/Users/\<username\>/.echocredentials). It is also a json file and must have the (self-explanatory) keys `email` and `password`. If this file is not present (or incorrectly configured), the application will simply treat Echo360 features like any other external tool.
 
