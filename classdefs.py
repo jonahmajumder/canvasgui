@@ -15,7 +15,7 @@ from PyQt5.QtCore import *
 from bs4 import BeautifulSoup
 from urllib import parse
 
-from echo360 import get_formdata, auth_echo_session
+from echo360 import get_formdata
 
 from canvasapi import Canvas
 from canvasapi.favorite import Favorite
@@ -295,6 +295,7 @@ class CourseItem(CanvasItem):
         ]
 
         self.gui = kwargs.pop('gui')
+        self.echo360session = kwargs.pop('echo360session', None)
 
         self.content = self.gui.contentTypeComboBox.currentIndex()
         self.downloadfolder = self.gui.preferences.current['downloadfolder']
@@ -427,8 +428,8 @@ class CourseItem(CanvasItem):
         tabs = [t for t in self.obj.get_tabs() if t.type == 'external']
         if len(tabs) > 0:
             for t in tabs:
-                if t.label == 'Echo360':
-                    item = Echo360Item(object=t)
+                if t.label == 'Echo360' and self.gui.echo360session is not None:
+                    item = Echo360Item(object=t, session=self.gui.echo360session)
                     self.append_item_row(item)
                 else:
                     item = TabItem(object=t)
@@ -509,14 +510,16 @@ class Echo360Item(TabItem):
     docstring for Echo360Item
     """
     def __init__(self, *args, **kwargs):
+        self.session = kwargs.pop('session', None)
+        assert self.session is not None
+
         super(Echo360Item, self).__init__(*args, **kwargs)
 
-        # this is very inefficient, don't need one for each item!
-        self.session = auth_echo_session()
+        self.setIcon(QIcon(ResourceFile('icons/echo360.png')))
 
-        self.homeurl = None        
+        self.set_homeurl()
 
-    def get_homeurl(self):
+    def set_homeurl(self):
         r1 = self.session.get(self.retrieve_sessionless_url())
         assert r1.ok
 
@@ -530,9 +533,6 @@ class Echo360Item(TabItem):
         self.homeurl = r2.url
 
     def get_syllabus(self):
-        if self.homeurl is None:
-            self.get_homeurl()
-
         r = self.session.get(self.homeurl.replace('home', 'syllabus'))
         assert r.ok
 

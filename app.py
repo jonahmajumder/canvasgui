@@ -10,6 +10,7 @@ from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 
 from guihelper import disp_html
+from echo360 import auth_echo_session
 from classdefs import (
     CanvasItem, CourseItem, SeparatorItem,
     CustomProxyModel, CustomStyledItemDelegate
@@ -40,6 +41,11 @@ class CanvasApp(QMainWindow):
             sys.exit()
 
         self.init_api()
+
+        if self.preferences.echocredentials is not None:
+            self.echo360session = auth_echo_session(self.preferences.echocredentials)
+        else:
+            self.echo360session = None
 
         self.build()
 

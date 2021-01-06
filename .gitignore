@@ -2,6 +2,7 @@
 
 defaults.json
 tikudefaults.json
+echocredentials.json
 secrets.py
 
 # other irrelevant stuff

@@ -17,6 +17,12 @@ The (hidden) preferences file is called `.canvasdefaults` and lives in the user'
 ```
 If any of these are deemed invalid (or no file is detected), a GUI will prompt the user to fill them in. This interface also allows the user to save entered credentials for future use.
 
+### Echo360 Support
+
+My instution uses the [Echo360](https://echo360.com/) platform to host recorded lectures. The Canvas API presents this feature as an "external tool" without much access to the associated data. Because this is a feature I use frequently, I built the ability to access this data into my app. While the Echo360 platform exposes a RESTful API, it is not accessible to the average (student) user. Therefore, data is simply accessed via an authenticated `requests.session`. This means that the only credentials needed are those normally used with the web interface.
+
+Credentials can be included in a file analagous to `.canvasdefaults`, called `.echocredentials`, also located in the user's home directory (/Users/\<username\>/.echocredentials). It is also a json file and must have the (self-explanatory) keys `email` and `password`. If this file is not present (or incorrectly configured), the application will simply treat Echo360 features like any other external tool.
+
 ### Nonstandard (Direct) Dependencies
 (All available on PyPI)
 
@@ -34,7 +40,7 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Editing of preferences during app operation
 - [X] Test changing user/auth credentials during app operation (i.e. resetting)
 - [X] Context menus for everything but expand
-- [ ] Handling of double/right clicking on multiple items
+- [ ] Handling of right clicking on multiple items
 - [X] Different course icons to indicate current content mode
 - [X] Course nicknaming by editing item (right click -> Rename)
 - [X] Folder (recursive) downloading
@@ -50,6 +56,7 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Dealing with duplicate children
 - [X] Deployment into macOS (.app) standalone application
 - [X] Testing standalone .app on other machine
-- [ ] Create menu for showing profile, opening preferences editor, quitting, checking connection?
+- [ ] Conveying information about echo360 credentials to user (e.g. included, incorrect, etc.)
+- [ ] Create menu for showing profile, opening preferences editor
 - [ ] Application-level error handling?
 - [ ] Multithreaded retrieval of data for "expand all" (back burner)

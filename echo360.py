@@ -1,4 +1,4 @@
-# login.py
+# echo360.py
 
 import requests
 from bs4 import BeautifulSoup
@@ -9,12 +9,11 @@ import re
 
 from secrets import EMAIL, ECHOPASSWORD
 
-
 def get_formdata(formelem):
     inputs = formelem.find_all('input')
     return {i.attrs['name']: i.attrs.get('value', '') for i in inputs}
 
-def auth_echo_session(sess=None):
+def auth_echo_session(credentials, sess=None):
     # make new session only existing not provided
     if sess is None:
         sess = requests.Session()
@@ -27,7 +26,7 @@ def auth_echo_session(sess=None):
     soup1 = BeautifulSoup(r1.text, 'html.parser')
     loginform1 = soup1.find(id='login-form')
     data1 = get_formdata(loginform1)
-    data1['email'] = EMAIL
+    data1['email'] = credentials['email']
     dest2 = loginform1.attrs['action']
     url2 = urlunsplit(urlsplit(r1.url)._replace(path=dest2))
 
@@ -37,7 +36,7 @@ def auth_echo_session(sess=None):
     soup2 = BeautifulSoup(r2.text, 'html.parser')
     loginform2 = soup2.find(id='login-form')
     data2 = get_formdata(loginform2)
-    data2['password'] = ECHOPASSWORD
+    data2['password'] = credentials['password']
     dest3 = loginform2.attrs['action']
     url3 = urlunsplit(urlsplit(r2.url)._replace(path=dest3, query=''))
 

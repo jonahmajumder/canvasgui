@@ -34,6 +34,7 @@ class Preferences(QDialog):
     """
 
     AUTOLOAD_FILE = HOME / '.canvasdefaults'
+    ECHOCREDENTIAL_FILE = HOME / '.echocredentials'
 
     def __init__(self, canvasapp):
         super(Preferences, self).__init__()
@@ -43,6 +44,8 @@ class Preferences(QDialog):
         self.messages = []
 
         self.build()
+
+        self.load_echo_credentials()
 
         candidates = self.load_from_file(self.AUTOLOAD_FILE)
 
@@ -178,6 +181,21 @@ class Preferences(QDialog):
             candidates['defaultcontent'] = j.get('defaultcontent', 'modules')
 
         return candidates
+
+    def load_echo_credentials(self):
+        if self.ECHOCREDENTIAL_FILE.exists():
+            with open(str(self.ECHOCREDENTIAL_FILE), 'r') as fileobj:
+                filetext = fileobj.read()
+            try:
+                js = json.loads(filetext)
+                if 'email' in js and 'password' in js:
+                    self.echocredentials = js
+                else:
+                    self.echocredentials = None
+            except ValueError:
+                self.echocredentials = None
+        else:
+            self.echocredentials = None
 
     def save_current(self, file):
         with open(file, 'w') as fobj:
