@@ -275,26 +275,12 @@ class CourseItem(CanvasItem):
     """
     class for tree elements with corresponding canvasapi "course" objects
     """
-    CONTENT_TYPES = [
-        {'tag': 'modules', 'displayname': 'Modules', 'icon': 'icons/book_module.png'},
-        {'tag': 'files', 'displayname': 'Filesystem', 'icon': 'icons/book_folder.png'},
-        {'tag': 'assignments', 'displayname': 'Assignments', 'icon': 'icons/book_assignment.png'},
-        {'tag': 'tools', 'displayname': 'External Tools', 'icon': 'icons/book_link.png'},
-        {'tag': 'announcements', 'displayname': 'Announcements', 'icon': 'icons/book_announcement.png'}
-
-    ]
 
     def __init__(self, *args, **kwargs):
-        self.expanders = [
-            self.get_modules,
-            self.get_filesystem,
-            self.get_assignments,
-            self.get_tools,
-            self.get_announcements
-        ]
 
         self.gui = kwargs.pop('gui')
         self.echo360session = kwargs.pop('echo360session', None)
+        self.nickname = kwargs.pop('nickname', None)
 
         self.content = self.gui.contentTypeComboBox.currentIndex()
         self.downloadfolder = self.gui.preferences.current['downloadfolder']
@@ -314,13 +300,8 @@ class CourseItem(CanvasItem):
     def refresh_course_obj(self):
         self.obj = self.gui.canvas.get_course(self.obj.id, include=['term', 'favorites'])
 
-    def get_nickname(self):
-        self.nickname = self.gui.canvas.get_course_nickname(self.obj.id)
-        self.has_nickname = self.nickname is not None
-
     def init_from_obj(self):
         self.CONTEXT_MENU_ACTIONS = []
-        self.get_nickname()
 
         if self.obj.is_favorite:
             self.favoriteobj = Favorite(self.obj._requester, {'context_id': self.obj.id, 'context_type': 'course'})
@@ -338,8 +319,6 @@ class CourseItem(CanvasItem):
         ])
 
         self.update_context_menu()
-
-        self.setIcon(QIcon(ResourceFile(self.CONTENT_TYPES[self.content]['icon'])))
 
     def add_favorite(self):
         self.favoriteobj = self.gui.user.add_favorite_course(self.obj.id)
@@ -454,6 +433,77 @@ class CourseItem(CanvasItem):
         except ResourceDoesNotExist:
             self.print('Resource "{0}" (via "{1}") not found for course "{2}".'.format(id, method, self.name))
             return None
+
+class CourseModulesItem(CourseItem):
+    """
+    CourseItem which expands modules
+    """
+    CONTENT_TYPE_INDEX = 0
+
+    def __init__(self, *args, **kwargs):
+        super(CourseModulesItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(QIcon(ResourceFile('icons/book_module.png')))
+
+    def expand(self, **kwargs):
+        self.get_modules()
+
+class CourseFilesItem(CourseItem):
+    """
+    CourseItem which expands filesystem
+    """
+    CONTENT_TYPE_INDEX = 1
+
+    def __init__(self, *args, **kwargs):
+        super(CourseFilesItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(QIcon(ResourceFile('icons/book_folder.png')))
+
+    def expand(self, **kwargs):
+        self.get_filesystem()
+
+class CourseAssignmentsItem(CourseItem):
+    """
+    CourseItem which expands assignments
+    """
+    CONTENT_TYPE_INDEX = 2
+
+    def __init__(self, *args, **kwargs):
+        super(CourseAssignmentsItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(QIcon(ResourceFile('icons/book_assignment.png')))
+
+    def expand(self, **kwargs):
+        self.get_assignments()
+
+class CourseToolsItem(CourseItem):
+    """
+    CourseItem which expands tools
+    """
+    CONTENT_TYPE_INDEX = 3
+
+    def __init__(self, *args, **kwargs):
+        super(CourseToolsItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(QIcon(ResourceFile('icons/book_link.png')))
+
+    def expand(self, **kwargs):
+        self.get_tools()
+
+class CourseAnnouncementsItem(CourseItem):
+    """
+    CourseItem which expands announcements
+    """
+    CONTENT_TYPE_INDEX = 4
+
+    def __init__(self, *args, **kwargs):
+        super(CourseAnnouncementsItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(QIcon(ResourceFile('icons/book_announcement.png')))
+
+    def expand(self, **kwargs):
+        self.get_announcements()
+
 
 class ExternalToolItem(CanvasItem):
     """
@@ -638,7 +688,9 @@ class Echo360LectureItem(CustomItem):
 
             if not newpath.exists():
                 # download file here
-                self.open_and_notify(u)
+                r = self.parent().session.get(u)
+                with open(str(newpath), 'wb') as fileobj:
+                    fileobj.write(r.content)
                 self.print('{} downloaded.'.format(newpath.name))
             else:
                 self.print('{0} already exists at {1}; file not replaced.'.format(newpath.name, loc))
@@ -851,7 +903,7 @@ class FileItem(CanvasItem):
                 self.print('{0} already exists at {1}; file not replaced.'.format(filename, loc))
 
             if newpath.suffix in CONVERTIBLE_EXTENSIONS:
-                if confirm_dialog('Convert {} to PDF?'.format(filename), title='Convert File'):
+                if confirm_dialog('Convert {} to PDF?'.format(filename), title='Convert File', yesno=True):
                     self.print('Converting {} to a PDF.'.format(filename))
                     convert(newpath)
                     os.remove(newpath)
@@ -1024,6 +1076,14 @@ class AssignmentItem(CanvasItem):
         else:
             self.open_and_notify(self.obj.html_url)
 
+CONTENT_TYPES = [
+    {'tag': 'modules', 'displayname': 'Modules', 'subclass': CourseModulesItem},
+    {'tag': 'files', 'displayname': 'Filesystem', 'subclass': CourseFilesItem},
+    {'tag': 'assignments', 'displayname': 'Assignments', 'subclass': CourseAssignmentsItem},
+    {'tag': 'tools', 'displayname': 'External Tools', 'subclass': CourseToolsItem},
+    {'tag': 'announcements', 'displayname': 'Announcements', 'subclass': CourseAnnouncementsItem}
+]
+
 # ----------------------------------------------------------------------
 
 class DateItem(QStandardItem):
@@ -1118,6 +1178,7 @@ class CustomProxyModel(QSortFilterProxyModel):
     def __init__(self, *args, **kwargs):
         # set defaults
         self.ONLY_FAVORITES = kwargs.pop('favorites_initial', True)
+        self.CONTENT_TYPE_INDEX = kwargs.pop('content_initial', 0)
         self.terms = kwargs.pop('terms', [])
         self.VISIBLE_TERM_IDS =  [t['id'] for t in self.terms] # initially all
 
@@ -1133,6 +1194,11 @@ class CustomProxyModel(QSortFilterProxyModel):
         terms = [t['id'] for t in self.terms]
         self.VISIBLE_TERM_IDS = [i for (i,b) in zip(terms, bool_vals) if b]
         self.invalidateFilter()
+
+    def contentTypeChanged(self, newindex):
+        self.CONTENT_TYPE_INDEX = newindex
+        self.invalidateFilter()
+
 
     def filtering_item(self, row, parentindex, column=0):
         # tricky thing here is that "parentindex" correspondes 
@@ -1160,7 +1226,9 @@ class CustomProxyModel(QSortFilterProxyModel):
         else:
             term_accept = False
 
-        return favorite_accept and term_accept
+        content_accept = item.course().CONTENT_TYPE_INDEX == self.CONTENT_TYPE_INDEX
+
+        return all([favorite_accept, term_accept, content_accept])
 
 # ---------------------------- CUSTOM WIDGETS -----------------------------
 

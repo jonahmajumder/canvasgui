@@ -3,13 +3,17 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.Qt import *
 
-def confirm_dialog(text, title='Confirm'):
+def confirm_dialog(text, title='Confirm', yesno=False):
+
     m = QMainWindow()
 
     dlg = QDialog(m)
     dlg.setWindowTitle(title)
 
-    buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+    if yesno:
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Yes | QDialogButtonBox.No)
+    else:
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
 
     buttonBox.accepted.connect(dlg.accept)
     buttonBox.rejected.connect(dlg.reject)

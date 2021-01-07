@@ -62,6 +62,8 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Replace terminal printed lines with status bar text
 - [X] Dealing with duplicate children
 - [X] Filtering by semester
+- [ ] Make dialogs open in front of app (rather than on other monitor, etc.)
+- [ ] Allow "No" instead of cancel for confirm dialogs
 
 ##### Overall App Operation
 - [X] Convert from widget to model architecture

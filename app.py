@@ -3,6 +3,8 @@ from time import time
 import webbrowser
 import base64
 
+import threading
+
 from PyQt5.Qt import *
 from PyQt5.QtGui import *
 
@@ -12,7 +14,7 @@ from canvasapi.exceptions import Unauthorized
 from guihelper import disp_html
 from echo360 import auth_echo_session
 from classdefs import (
-    CanvasItem, CourseItem,
+    CanvasItem, CourseItem, CONTENT_TYPES,
     CustomProxyModel, CustomStyledItemDelegate
 )
 from classdefs import SliderHLayout, CheckableComboBox
@@ -52,11 +54,6 @@ class CanvasApp(QMainWindow):
         if self.preferences.message_present():
             self.print(self.preferences.get_message(), 0)
 
-        # use preferences to set content type combo box
-        self.contentTypeComboBox.setCurrentIndex(self.preferences.current['defaultcontent'])
-
-        self.add_courses()
-
         self.connect_signals()
 
         # self.tree.sortByColumn(1, Qt.DescendingOrder) # most recent at top
@@ -66,6 +63,8 @@ class CanvasApp(QMainWindow):
         self.center_on_screen()
 
         self.print('Welcome, {}!'.format(self.user.get_profile()['name']),  append=True)
+
+        threading.Thread(target=self.add_courses).start()
 
     def auth_get(self, url):
         return self.canvas._Canvas__requester.request('GET', _url=url)
@@ -83,8 +82,11 @@ class CanvasApp(QMainWindow):
     def build(self):
 
         self.contentTypeComboBox = QComboBox()
-        for ct in CourseItem.CONTENT_TYPES:
+        for ct in CONTENT_TYPES:
             self.contentTypeComboBox.addItem(ct['displayname'])
+
+        # use preferences to set content type combo box
+        self.contentTypeComboBox.setCurrentIndex(self.preferences.current['defaultcontent'])
 
         self.contentTypeLayout = QHBoxLayout()
         self.contentTypeLayout.addItem(QSpacerItem(20,40))
@@ -141,8 +143,11 @@ class CanvasApp(QMainWindow):
 
         self.tree = QTreeView()
         self.model = QStandardItemModel(0, 2, self)
+        self.modelroot = self.model.invisibleRootItem()
+
         self.proxyModel = CustomProxyModel(self.model,
             favorites_initial=self.favoriteSlider.value(),
+            content_initial=self.contentTypeComboBox.currentIndex(),
             terms=self.terms
             )
         self.proxyModel.setSourceModel(self.model)
@@ -198,7 +203,7 @@ class CanvasApp(QMainWindow):
         self.model.itemChanged.connect(lambda item: item.itemChangeFcn())
 
         self.expandButton.clicked.connect(self.expand_all)
-        self.contentTypeComboBox.currentIndexChanged.connect(self.contentTypeChanged)
+        self.contentTypeComboBox.currentIndexChanged.connect(self.proxyModel.contentTypeChanged)
         self.favoriteSlider.valueChanged.connect(self.proxyModel.only_favorites_changed)
         self.termComboBox.selectionsChanged.connect(self.proxyModel.terms_changed)
 
@@ -224,10 +229,6 @@ class CanvasApp(QMainWindow):
 
     def selected_canvasitem(self):
         return self.selected_canvasitems()[0]
-
-    def contentTypeChanged(self):
-        self.clear_courses()
-        self.add_courses()
 
 # -------------------- FUNCTIONAL METHODS --------------------
 
@@ -268,14 +269,24 @@ class CanvasApp(QMainWindow):
         self.termComboBox.selectionChangedFcn(None)
 
     def add_courses(self):
-        root = self.model.invisibleRootItem()
+        courses = list(self.canvas.get_courses(include=['term', 'favorites']))
+        numcourses = len(courses)
+        nicknames = [self.canvas.get_course_nickname(course.id) for course in courses]
+        classtypes = [d['subclass'] for d in CONTENT_TYPES]
 
-        for course in self.canvas.get_courses(include=['term', 'favorites']):
-            item = CourseItem(object=course, gui=self)
-            root.appendRow([item, item.date])
+        for (i, course, nickname) in zip(range(numcourses), courses, nicknames):
+            for classtype in classtypes:
+                fcn = lambda: self.make_and_add_courseitem(course, nickname, classtype)
+                threading.Thread(target=fcn).start()
 
-    def clear_courses(self):
+    def make_and_add_courseitem(self, course, nickname, classtype):
+        item = classtype(object=course, gui=self, nickname=nickname)
+        self.modelroot.appendRow([item, item.date])
+
+
+    def reset_courses(self):
         self.model.removeRows(0, self.model.rowCount())
+        self.add_courses()
 
     def expand_all(self):
         start_time = time()
@@ -326,5 +337,5 @@ class CanvasApp(QMainWindow):
             self.print('Application preferences changed.')
             self.init_api() # reset canvasapi instance
             self.synchronize_terms_to_gui() # account for potentially new set of course terms
-            self.contentTypeChanged() # trigger repopulation of classes
+            self.reset_courses() # trigger repopulation of classes
 

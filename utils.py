@@ -15,7 +15,7 @@ from PyQt5.QtGui import QIcon
 
 from canvasapi import Canvas
 from canvasapi.exceptions import InvalidAccessToken
-from classdefs import CourseItem
+from classdefs import CourseItem, CONTENT_TYPES
 
 from locations import ResourceFile, HOME
 
@@ -86,7 +86,7 @@ class Preferences(QDialog):
         self.browseButton.clicked.connect(self.browse)
 
         self.contentComboBox = QComboBox()
-        for ct in CourseItem.CONTENT_TYPES:
+        for ct in CONTENT_TYPES:
             self.contentComboBox.addItem(ct['displayname'])
         self.mainLayout.addRow('Default Content:', self.contentComboBox)
 
@@ -270,7 +270,7 @@ class Preferences(QDialog):
 
         candidates['downloadfolder'] = str(p) # this should be a valid path
 
-        tags = [c['tag'] for c in CourseItem.CONTENT_TYPES]
+        tags = [c['tag'] for c in CONTENT_TYPES]
 
         ct = trialcontent
 
