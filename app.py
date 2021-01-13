@@ -3,7 +3,11 @@ from time import time
 import webbrowser
 import base64
 
+from json.decoder import JSONDecodeError
+
 import threading
+
+from urllib import parse
 
 from PyQt5.Qt import *
 from PyQt5.QtGui import *
@@ -12,14 +16,13 @@ from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 
 from guihelper import disp_html
-from echo360 import auth_echo_session
+from login import auth_canvas_session, auth_echo_session
 from classdefs import (
     CanvasItem, CourseItem, CONTENT_TYPES,
     CustomProxyModel, CustomStyledItemDelegate
 )
 from classdefs import SliderHLayout, CheckableComboBox
 from utils import Preferences
-# from locations import ResourceFile
 
 class CanvasApp(QMainWindow):
     SIZE = (800, 600)
@@ -44,15 +47,13 @@ class CanvasApp(QMainWindow):
 
         self.init_api()
 
-        if self.preferences.echocredentials is not None:
-            self.echo360session = auth_echo_session(self.preferences.echocredentials)
-        else:
-            self.echo360session = None
-
         self.build()
 
         if self.preferences.message_present():
             self.print(self.preferences.get_message(), 0)
+
+        #populate courses after loading
+        threading.Thread(target=self.add_courses).start()
 
         self.connect_signals()
 
@@ -64,7 +65,6 @@ class CanvasApp(QMainWindow):
 
         self.print('Welcome, {}!'.format(self.user.get_profile()['name']),  append=True)
 
-        threading.Thread(target=self.add_courses).start()
 
     def auth_get(self, url):
         return self.canvas._Canvas__requester.request('GET', _url=url)
@@ -78,6 +78,41 @@ class CanvasApp(QMainWindow):
         )
         self.user = self.canvas.get_current_user()
         self.terms = self.unique_terms()
+
+        self.authenticate_session()
+
+    def authenticate_session(self):
+        if self.preferences.web_credentials['canvas'] is not None:
+            auth_canvas_session(
+                self.preferences.web_credentials['canvas'],
+                self.preferences.current['baseurl'],
+                self.canvas._Canvas__requester._session
+            )
+            testurl = parse.urlunsplit(parse.urlsplit(self.preferences.current['baseurl'])._replace(path=''))
+            try:
+                r = self.auth_get(testurl)
+                if r.ok:
+                    self.CANVAS_AUTHENTICATED = True
+                else:
+                    self.CANVAS_AUTHENTICATED = False
+            except:
+                self.CANVAS_AUTHENTICATED = False
+        else:
+            self.CANVAS_AUTHENTICATED = False
+
+
+        if self.preferences.web_credentials['echo360'] is not None:
+            auth_echo_session(
+                self.preferences.web_credentials['echo360'],
+                self.canvas._Canvas__requester._session
+            )
+            try: # url returns json only if authenticated
+                self.auth_get('https://echo360.org/user/enrollments').json()
+                self.ECHO_AUTHENTICATED = True
+            except:
+                self.ECHO_AUTHENTICATED = False
+        else:
+            self.ECHO_AUTHENTICATED = False
 
     def build(self):
 
@@ -274,8 +309,8 @@ class CanvasApp(QMainWindow):
         nicknames = [self.canvas.get_course_nickname(course.id) for course in courses]
         classtypes = [d['subclass'] for d in CONTENT_TYPES]
 
-        for (i, course, nickname) in zip(range(numcourses), courses, nicknames):
-            for classtype in classtypes:
+        for classtype in classtypes:
+            for (i, course, nickname) in zip(range(numcourses), courses, nicknames):
                 fcn = lambda: self.make_and_add_courseitem(course, nickname, classtype)
                 threading.Thread(target=fcn).start()
 
@@ -283,13 +318,11 @@ class CanvasApp(QMainWindow):
         item = classtype(object=course, gui=self, nickname=nickname)
         self.modelroot.appendRow([item, item.date])
 
-
     def reset_courses(self):
         self.model.removeRows(0, self.model.rowCount())
         self.add_courses()
 
     def expand_all(self):
-        start_time = time()
 
         selected = self.selected_canvasitems()
 
@@ -300,8 +333,6 @@ class CanvasApp(QMainWindow):
 
         for item in to_expand:
             item.expand_recursive()
-
-        self.print('Load time: {:.2f} s'.format(time() - start_time))
 
     def generate_profile_html(self):
         data = self.user.get_profile()

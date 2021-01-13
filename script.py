@@ -4,7 +4,7 @@ from time import time
 from canvasapi import Canvas
 from canvasapi.exceptions import Unauthorized
 
-from secrets import BASEURL, TOKEN
+from secrets import BASEURL, TOKEN, USERNAME, PASSWORD
 
 canvas = Canvas(BASEURL, TOKEN)
 

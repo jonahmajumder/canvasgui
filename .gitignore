@@ -7,6 +7,10 @@ secrets.py
 
 # other irrelevant stuff
 
+*.pyo
+
+*.html
+
 dialogtest.py
 login.py
 
@@ -16,4 +20,3 @@ canvasapi alias
 __pycache__/*
 archive/*
 build/*
-dist/*

@@ -3,9 +3,9 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.Qt import *
 
-def confirm_dialog(text, title='Confirm', yesno=False):
+def confirm_dialog(text, title='Confirm', yesno=False, parent=None):
 
-    m = QMainWindow()
+    m = parent if parent else QMainWindow() 
 
     dlg = QDialog(m)
     dlg.setWindowTitle(title)
@@ -26,17 +26,18 @@ def confirm_dialog(text, title='Confirm', yesno=False):
     layout.addWidget(buttonBox)
     dlg.setLayout(layout)
 
-    m.setGeometry(
-        QStyle.alignedRect(
-            Qt.LeftToRight,
-            Qt.AlignCenter,
-            QSize(100,100),
-            m.screen().geometry())
-    )
+    # dlg.setGeometry(
+    #     QStyle.alignedRect(
+    #         Qt.LeftToRight,
+    #         Qt.AlignCenter,
+    #         QSize(100,100),
+    #         m.geometry())
+    # )
     return bool(dlg.exec_())
 
-def disp_html(htmlstr, title='HTML'):
-    m = QMainWindow()
+def disp_html(htmlstr, title='HTML', parent=None):
+
+    m = parent if parent else QMainWindow() 
 
     dlg = QDialog(m)
     dlg.setWindowTitle(title)
@@ -58,12 +59,13 @@ def disp_html(htmlstr, title='HTML'):
             Qt.LeftToRight,
             Qt.AlignCenter,
             QSize(600,600),
-            dlg.screen().geometry())
+            m.geometry())
     )
     return dlg.exec_()
 
-def alert(text, title='Alert'):
-    m = QMainWindow()
+def alert(text, title='Alert', parent=None):
+    
+    m = parent if parent else QMainWindow() 
 
     dlg = QDialog(m)
     dlg.setWindowTitle(title)
@@ -79,12 +81,12 @@ def alert(text, title='Alert'):
     layout.addWidget(buttonBox)
     dlg.setLayout(layout)
 
-    m.setGeometry(
+    dlg.setGeometry(
         QStyle.alignedRect(
             Qt.LeftToRight,
             Qt.AlignCenter,
             QSize(100,100),
-            m.screen().geometry())
+            m.geometry())
     )
     return dlg.exec_()
 

@@ -1,6 +1,7 @@
 import sys
 from time import time
 import json
+from types import SimpleNamespace
 import os
 import re
 from pathlib import Path
@@ -15,8 +16,6 @@ from PyQt5.QtCore import *
 
 from bs4 import BeautifulSoup
 from urllib import parse
-
-from echo360 import get_formdata
 
 from canvasapi import Canvas
 from canvasapi.favorite import Favorite
@@ -45,6 +44,10 @@ class CustomItem(QStandardItem):
 
     def expand(self, **kwargs):
         pass
+
+    def reexpand(self, **kwargs):
+        self.removeRows(0, self.rowCount())
+        self.expand(**kwargs)
 
     def download(self, **kwargs):
         pass
@@ -76,6 +79,14 @@ class CustomItem(QStandardItem):
             row.append(item)
             row.append(item.date)
             self.appendRow(row)
+
+    def toolitem_from_obj(self, obj):
+        if obj.label == 'Echo360' and self.gui.ECHO_AUTHENTICATED:
+            return Echo360Item(object=obj)
+        elif obj.label == 'aPlus+ Attendance' and self.gui.CANVAS_AUTHENTICATED:
+            return APlusAttendanceItem(object=obj)
+        else:
+            return TabItem(object=obj)
 
     def update_context_menu(self):
         self.contextMenu = QMenu()
@@ -120,8 +131,19 @@ class CanvasItem(CustomItem):
 
         self.process_name()
 
+    def __repr__(self):
+        template = '<{type} ({name}) with canvasapi "{canvastype}" object>'
+        return template.format(
+            type=self.__class__.__name__,
+            name=self.name,
+            canvastype=self.obj.__class__.__name__
+        )
+
     def auth_get(self, url):
         return self.obj._requester.request('GET', _url=url)
+
+    def auth_post(self, url, data):
+        return self.obj._requester.request('POST', _url=url, **data)
 
     def api_get(self, urlpath):
         return self.obj._requester.request('GET', urlpath)
@@ -190,7 +212,10 @@ class CanvasItem(CustomItem):
                         l.attrs['data-api-returntype'] = 'Quiz'
                     elif 'assignments' in info:
                         l.attrs['data-api-returntype'] = 'Assignment'
+                    elif 'external_tools' in info:
+                        l.attrs['data-api-returntype'] = 'ExternalTool'
                     else:
+                        print(info)
                         raise ValueError('Unknown instructure_file_link type, url: {}'.format(l.attrs['data-api-endpoint']))
 
                 except ResourceDoesNotExist:
@@ -219,6 +244,7 @@ class CanvasItem(CustomItem):
             pages = links.get('Page', [])
             quizzes = links.get('Quiz', [])
             assignments = links.get('Assignment', [])
+            tools = links.get('ExternalTool', [])
 
             # for a in sum(links.values(), []):
             #     info = self.parse_api_url(a.attrs['data-api-endpoint'])
@@ -247,10 +273,26 @@ class CanvasItem(CustomItem):
                 if assignment:
                     item = AssignmentItem(object=assignment)
                     self.append_item_row(item)
+            for a in tools:
+                info = self.parse_api_url(a.attrs['data-api-endpoint'])
+                tool = self.course().safe_get_item('get_external_tool', info['external_tools'])
+                if tool:
+                    item = ExternalToolItem(object=tool)
+                    self.append_item_row(item)
             if not sum(links.values(), []):
                 self.print('No HTML links found.')
         else:
             self.print('No HTML present.')
+
+    def parse_api_url(self, apiurl):
+        pathstr = parse.urlsplit(apiurl).path.strip(os.sep)
+        apipath = Path(pathstr).relative_to('api/v1/')
+        parts = apipath.parts
+        if len(parts) > 3:
+            info = {parts[0]: parts[1], parts[2]: str(Path(*parts[3:]))}
+        else:
+            info = {parts[0]: str(Path(*parts[1:]))}
+        return info
 
     def retrieve_sessionless_url(self):
         if hasattr(self.obj, 'url'):
@@ -262,15 +304,6 @@ class CanvasItem(CustomItem):
 
         return None
 
-    def parse_api_url(self, apiurl):
-        pathstr = parse.urlsplit(apiurl).path.strip(os.sep)
-        parts = Path(pathstr).parts
-        if not len(parts) % 2:
-            info = {k:v for (k,v) in zip(parts[::2], parts[1::2])}
-        else:
-            raise Exception('Odd number of path elements to parse ({})'.format(pathstr))
-        return info
-
 class CourseItem(CanvasItem):
     """
     class for tree elements with corresponding canvasapi "course" objects
@@ -279,7 +312,6 @@ class CourseItem(CanvasItem):
     def __init__(self, *args, **kwargs):
 
         self.gui = kwargs.pop('gui')
-        self.echo360session = kwargs.pop('echo360session', None)
         self.nickname = kwargs.pop('nickname', None)
 
         self.content = self.gui.contentTypeComboBox.currentIndex()
@@ -302,6 +334,7 @@ class CourseItem(CanvasItem):
 
     def init_from_obj(self):
         self.CONTEXT_MENU_ACTIONS = []
+        # self.get_nickname()
 
         if self.obj.is_favorite:
             self.favoriteobj = Favorite(self.obj._requester, {'context_id': self.obj.id, 'context_type': 'course'})
@@ -406,12 +439,8 @@ class CourseItem(CanvasItem):
         tabs = [t for t in self.obj.get_tabs() if t.type == 'external']
         if len(tabs) > 0:
             for t in tabs:
-                if t.label == 'Echo360' and self.gui.echo360session is not None:
-                    item = Echo360Item(object=t, session=self.gui.echo360session)
-                    self.append_item_row(item)
-                else:
-                    item = TabItem(object=t)
-                    self.append_item_row(item)
+                item = self.toolitem_from_obj(t)
+                self.append_item_row(item)
         else:
             self.setEnabled(False)
 
@@ -556,14 +585,24 @@ class TabItem(CanvasItem):
     def dblClickFcn(self, **kwargs):
         self.open(**kwargs)
 
+    def follow_sessionless_url(self):
+        r1 = self.auth_get(self.retrieve_sessionless_url())
+        assert r1.ok
+
+        soup = BeautifulSoup(r1.text, 'html.parser')
+        postform = soup.find(id='tool_form')
+        data = {i.attrs['name']: i.attrs.get('value', '') for i in postform.find_all('input')}
+
+        r2 = self.auth_post(postform['action'], data=data)
+        assert r2.ok
+
+        return r2
+
 class Echo360Item(TabItem):
     """
     docstring for Echo360Item
     """
     def __init__(self, *args, **kwargs):
-        self.session = kwargs.pop('session', None)
-        assert self.session is not None
-
         super(Echo360Item, self).__init__(*args, **kwargs)
 
         self.setIcon(QIcon(ResourceFile('icons/echo360.png')))
@@ -571,52 +610,66 @@ class Echo360Item(TabItem):
         self.get_urls()
 
     def get_urls(self):
-        r1 = self.session.get(self.retrieve_sessionless_url())
-        assert r1.ok
+        r = self.follow_sessionless_url()
+        self.desturl = r.url
 
-        soup = BeautifulSoup(r1.text, 'html.parser')
-        postform = soup.find(id='tool_form')
-        data = get_formdata(postform)
+        parsed = parse.urlsplit(r.url)
+        location = Path(parsed.path).relative_to('/')
 
-        r2 = self.session.post(postform['action'], data=data)
-        assert r2.ok
-
-        self.homeurl = r2.url
-
-        parts = parse.urlsplit(self.homeurl)
-        path = Path(parts.path)
-        self.section_id = path.parent.name
-        self.urlparts = parts._replace(path=str(path.parent))
+        if location.parts[0] == 'section' and location.parts[2] == 'home':
+            self.ACTIVE = True
+            self.homeurl = r.url
+            self.section_id = location.parts[1]
+            self.urlparts = parsed._replace(path=str(location.parent))
+        else:
+            self.ACTIVE = False
 
     def make_url(self, relpath):
-        currentpath = Path(self.urlparts.path)
-        newpath = currentpath / relpath
-        newparts = self.urlparts._replace(path=str(newpath))
-        return parse.urlunsplit(newparts)
+        if self.ACTIVE:
+            currentpath = Path(self.urlparts.path)
+            newpath = currentpath / relpath
+            newparts = self.urlparts._replace(path=str(newpath))
+            return parse.urlunsplit(newparts)
+        else:
+            return None
 
     def get_syllabus(self):
-        r = self.session.get(self.make_url('syllabus'))
-        assert r.ok
+        if self.ACTIVE:
+            r = self.auth_get(self.make_url('syllabus'))
+            assert r.ok
 
-        js = r.json()
-        assert js['status'] == 'ok'
-        return js['data']
+            js = r.json()
+            assert js['status'] == 'ok'
+            syllabus = [s for s in js['data'] if s['lesson']['hasContent']]
+            return syllabus
+        else:
+            return None
 
-    def get_lectures(self):
-        syllabus = self.get_syllabus()
-        return [l['lesson'] for l in syllabus]
+    def get_lecture_urls(self):
+        if self.ACTIVE:
+            syllabus = self.get_syllabus()
+            ids = [l['lesson']['lesson']['id'] for l in syllabus]
+            paths = ['/lesson/{}/media'.format(i) for i in ids]
+            return [parse.urlunsplit(self.urlparts._replace(path=p)) for p in paths]
+        else:
+            return None
 
     def expand(self, **kwargs):
-        lectures = self.get_lectures()
-        for lec in lectures:
-            item = Echo360LectureItem(json=lec)
-            self.append_item_row(item)
+        if self.ACTIVE:
+            urls = self.get_lecture_urls()
+            for u in urls:
+                r = self.auth_get(u)
+                js = r.json()['data'][0]
+                item = Echo360LectureItem(json=js)
+                self.append_item_row(item)
 
-        if len(lectures) == 0:
-            self.setEnabled(False)
+            if len(urls) == 0:
+                self.setEnabled(False)
+        else:
+            self.print('Course is not activated on Echo360.')
 
     def open(self, **kwargs):
-        self.open_and_notify(self.homeurl)
+        self.open_and_notify(self.desturl)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
@@ -627,20 +680,24 @@ class Echo360LectureItem(CustomItem):
     notably NOT a CanvasItem (and has no canvas obj)
     """
     def __init__(self, *args, **kwargs):
-        json = kwargs.pop('json', None)
+        self.json = kwargs.pop('json', None)
 
-        # create obj so date class is happy
-        attrdict = json
-        self.obj = type('Lecture', (object,), attrdict)
+        self.obj = self.objectify(self.json)
+
+        # set up property to be used by date item
+        self.obj.created_at = self.obj.lesson.createdAt
 
         super(Echo360LectureItem, self).__init__(*args, **kwargs)
 
-        self.name = self.obj.lesson['name']
+        self.name = self.obj.lesson.name
+
+        self.calculate_duration()
 
         self.setText(self.name)
         self.setData(self.name, CanvasItem.SORTROLE)
 
         self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Show Info', 'function': self.show_info},
             {'displayname': 'Open', 'function': self.open},
             {'displayname': 'Download', 'function': self.download}
         ])
@@ -648,14 +705,30 @@ class Echo360LectureItem(CustomItem):
 
         self.setIcon(QIcon(ResourceFile('icons/video.png')))
 
-        self.basepath = Path('/lesson/{}'.format(self.obj.lesson['id']))
+        self.basepath = Path('/lesson/{}'.format(self.obj.lesson.id))
+
+    @staticmethod
+    def objectify(item):  
+        if isinstance(item, dict):
+            newitems = {k:Echo360LectureItem.objectify(v) for (k,v) in item.items()}
+            return SimpleNamespace(**newitems)
+        elif isinstance(item, (list, tuple)):
+            return [Echo360LectureItem.objectify(v) for v in item]
+        else:
+            return item
+
+    def calculate_duration(self):
+        pass
 
     def make_url(self, path):
         newparts = self.parent().urlparts._replace(path=str(path))
         return parse.urlunsplit(newparts)
 
     def identifier(self):
-        return self.obj.lesson['id']
+        return self.obj.lesson.id
+
+    def show_info(self):
+        print(self.obj)
 
     def dblClickFcn(self, **kwargs):
         self.open(**kwargs)
@@ -668,9 +741,15 @@ class Echo360LectureItem(CustomItem):
         hd = kwargs.get('hidef', True)
 
         online_filename = 'hd1.mp4' if hd else 'sd1.mp4'
-        media_id = self.obj.medias[0]['id']
+        media_id = self.obj.video.media.id
         downloadpath = Path('media/download/{0}/video/{1}'.format(media_id, online_filename))
         return self.make_url(downloadpath)
+
+    def fetch_and_save_data(self, url, filepath):
+        r = self.parent().auth_get(u)
+        with open(str(filepath), 'wb') as fileobj:
+            fileobj.write(r.content)
+        self.print('{} downloaded.'.format(filepath.name))
 
     def download(self, **kwargs):
         confirm = kwargs.get('confirm', True)
@@ -679,22 +758,162 @@ class Echo360LectureItem(CustomItem):
         u = self.make_downloadurl(**kwargs)
 
         if confirm:
-            confirmed = confirm_dialog('Download video {}?'.format(self.name), title='Confirm Download')
+            confirmed = confirm_dialog('Download video {}?'.format(self.name),
+                title='Confirm Download',
+                parent=self.course().gui
+            )
         else:
             confirmed = True
 
         if confirmed:
-            newpath = (Path(loc) / self.name).with_suffix('.mp4') # build local file Path obj
+            filename = self.obj.video.media.media.originalFile.name
+            newpath = Path(loc) / filename # build local file Path obj
 
             if not newpath.exists():
                 # download file here
-                r = self.parent().session.get(u)
-                with open(str(newpath), 'wb') as fileobj:
-                    fileobj.write(r.content)
-                self.print('{} downloaded.'.format(newpath.name))
+                self.fetch_and_save_data(u, newpath)
             else:
-                self.print('{0} already exists at {1}; file not replaced.'.format(newpath.name, loc))
+                self.print('{0} already exists at {1}; file not replaced.'.format(filename, loc))
 
+class APlusAttendanceItem(TabItem):
+
+    def __init__(self, *args, **kwargs):
+        super(APlusAttendanceItem, self).__init__(*args, **kwargs)
+
+        self.setIcon(QIcon(ResourceFile('icons/aplus.png')))
+
+        # self.get_events()
+
+    def get_events(self):
+        r = self.follow_sessionless_url()
+        soup = BeautifulSoup(r.text, 'html.parser')
+        days = soup.find_all(class_='dayPanel')
+
+        events = []
+        for d in days:
+            lis = d.find_all('li')
+            if len(lis) > 0:
+                for li in lis:
+                    date = datetime.strptime(d.attrs['id'], 'dayPanel_%d_%b_%y')
+                    datestr = date.isoformat()
+                    frag = date.strftime('%d_%b_%y').lstrip('0')
+                    url = parse.urlunsplit(parse.urlsplit(r.url)._replace(fragment=frag))
+                    text = li.text.strip()
+                    classes = li.find('i').attrs['class']
+
+
+                    valid = True
+                    if 'fa-check' in classes:
+                        status = 'recorded'
+                        submit_link = None
+                    elif 'fa-question' in classes:
+                        link = li.find('a')
+                        if link is not None:
+                            status = 'open'
+
+                            urlparts = parse.urlsplit(r.url)
+                            rel_link = link.attrs['href']
+                            submit_link = parse.urlunsplit(
+                                parse.urlsplit(rel_link)._replace(
+                                    scheme=urlparts.scheme,
+                                    netloc=urlparts.netloc,
+                                    path=urlparts.path
+                                    )
+                            )
+
+                        else:
+                            status = 'missed'
+                            submit_link = None
+                    else:
+                        print('Unrecognized aPlus html item classes: {}'.format(classes))
+                        valid = False
+
+                    if valid:
+                        events.append(SimpleNamespace(text=text, due_at=datestr, status=status, url=url, link=submit_link))
+                    
+
+        return events
+
+    def expand(self, **kwargs):
+        evs = self.get_events()
+
+        for ev in evs:
+            item = APlusEventItem(object=ev)
+            self.append_item_row(item)
+
+        if len(evs) == 0:
+            self.setEnabled(False)
+
+    def dblClickFcn(self, **kwargs):
+        self.expand(**kwargs)
+
+class APlusEventItem(CustomItem):
+    """
+    docstring for APlusEventItem
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.obj = kwargs.pop('object', None)
+
+        super(APlusEventItem, self).__init__(*args, **kwargs)
+
+        self.setText(self.obj.text)
+
+        if self.obj.status == 'open':
+            self.setIcon(QIcon(ResourceFile('icons/open.png')))
+            self.CONTEXT_MENU_ACTIONS.extend([
+                {'displayname': 'Record Attendance', 'function': self.record_attendance}
+            ])
+        elif self.obj.status == 'missed':
+            self.setIcon(QIcon(ResourceFile('icons/missed.png')))
+        elif self.obj.status == 'recorded':
+            self.setIcon(QIcon(ResourceFile('icons/recorded.png')))
+
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Open', 'function': self.open}
+        ])
+
+        self.update_context_menu()
+
+    def record_attendance(self):
+        if self.obj.link is not None:
+            r1 = self.parent().auth_get(self.obj.link)
+            assert r1.ok
+
+            if r1.url != self.obj.url: # test if this link "went anywhere"
+                soup = BeautifulSoup(r1.text, 'html.parser')
+                form = soup.find('form', id='ctl00')
+                data = {i.attrs['name']: i.attrs.get('value', '') for i in form.find_all('input')}
+
+                urlparts = parse.urlsplit(r1.url)
+                rel_link = form.attrs['action']
+                dest = parse.urlunsplit(
+                    parse.urlsplit(rel_link)._replace(
+                        scheme=urlparts.scheme,
+                        netloc=urlparts.netloc,
+                        path=urlparts.path
+                        )
+                )
+
+                r2 = self.parent().auth_post(dest, data)
+                assert r2.ok
+
+                self.print('Attendance recorded for event {}.'.format(self.obj.text))
+
+                self.parent().reexpand()
+
+            else:
+                return None
+
+
+    def identifier(self):
+        return self.obj.text
+
+    def dblClickFcn(self, **kwargs):
+        self.open(**kwargs)
+
+    def open(self, **kwargs):
+        self.open_and_notify(self.obj.url)
 
 class ExternalUrlItem(CanvasItem):
     """
@@ -781,7 +1000,10 @@ class ModuleItem(CanvasItem):
         confirm = kwargs.get('confirm', True)
 
         if confirm:
-            confirmed = confirm_dialog('Download contents of {}?'.format(self.name), title='Confirm Download')
+            confirmed = confirm_dialog('Download contents of {}?'.format(self.name),
+                title='Confirm Download',
+                parent=self.course().gui
+            )
         else:
             confirmed = True
 
@@ -833,6 +1055,8 @@ class FolderItem(CanvasItem):
 
         self.setIcon(QIcon(ResourceFile('icons/folder.png')))
 
+        self.setEnabled(not self.obj.locked_for_user)
+
     def expand(self, **kwargs):
         for file in self.safe_get_files():
             item = FileItem(object=file)
@@ -850,7 +1074,10 @@ class FolderItem(CanvasItem):
         confirm = kwargs.get('confirm', True)
 
         if confirm:
-            confirmed = confirm_dialog('Download contents of {}?'.format(self.name), title='Confirm Download')
+            confirmed = confirm_dialog('Download contents of {}?'.format(self.name),
+                title='Confirm Download',
+                parent=self.course().gui
+            )
         else:
             confirmed = True
 
@@ -878,18 +1105,24 @@ class FileItem(CanvasItem):
 
         self.setIcon(QIcon(ResourceFile('icons/file.png')))
 
+        self.setEnabled(not self.obj.locked_for_user)
+
     # this is a faster version of the CanvasAPI's download method (not sure why...)
     def save_data(self, filepath):
         r = self.auth_get(self.obj.url)
-        with open(filepath, 'wb') as fileobj:
+        with open(str(filepath), 'wb') as fileobj:
             fileobj.write(r.content)
+        self.print('{} downloaded.'.format(filepath.name))
 
     def download(self, **kwargs):
         loc = kwargs.get('location', self.course().downloadfolder)
         confirm = kwargs.get('confirm', True)
 
         if confirm:
-            confirmed = confirm_dialog('Download {}?'.format(self.obj.filename), title='Confirm Download')
+            confirmed = confirm_dialog('Download {}?'.format(self.obj.filename),
+                title='Confirm Download',
+                parent=self.course().gui
+            )
         else:
             confirmed = True
 
@@ -897,16 +1130,19 @@ class FileItem(CanvasItem):
             filename = parse.unquote(self.obj.filename)
             newpath = Path(loc) / filename # build local file Path obj
             if not newpath.exists():
-                self.save_data(str(newpath))
-                self.print('{} downloaded.'.format(filename))
+                self.save_data(newpath)
             else:
-                self.print('{0} already exists at {1}; file not replaced.'.format(filename, loc))
+                self.print('{0} already exists at {1}; file not replaced.'.format(newpath.name, loc))
 
             if newpath.suffix in CONVERTIBLE_EXTENSIONS:
-                if confirm_dialog('Convert {} to PDF?'.format(filename), title='Convert File', yesno=True):
-                    self.print('Converting {} to a PDF.'.format(filename))
+                if confirm_dialog('Convert {} to PDF?'.format(filename),
+                    title='Convert File',
+                    yesno=True,
+                    parent=self.course().gui
+                ):
                     convert(newpath)
                     os.remove(newpath)
+                    self.print('{} converted to a PDF.'.format(filename))
 
     def dblClickFcn(self, **kwargs):
         self.download()
@@ -933,7 +1169,7 @@ class PageItem(CanvasItem):
 
     def display(self, **kwargs):
         if self.obj.body:
-            disp_html(self.obj.body, title=self.name)
+            disp_html(self.obj.body, title=self.name, parent=self.course().gui)
         else:
             self.print('No content on page.')
 
@@ -981,7 +1217,7 @@ class DiscussionItem(CanvasItem):
         self.expand(**kwargs)
 
     def display(self, **kwargs):
-        disp_html(self.obj.message, title=self.text())
+        disp_html(self.obj.message, title=self.text(), parent=self.course().gui)
 
 class AnnouncementItem(CanvasItem):
     """
@@ -1043,7 +1279,7 @@ class AnnouncementItem(CanvasItem):
         self.display(**kwargs)
 
     def display(self, **kwargs):
-        disp_html(self.obj.message, title=self.text())
+        disp_html(self.obj.message, title=self.text(), parent=self.course().gui)
         self.mark_read()
 
 class AssignmentItem(CanvasItem):
@@ -1122,8 +1358,7 @@ class DateItem(QStandardItem):
             'created_at',
             'completed_at',
             'unlock_at',
-            'due_at',
-            'endTimeUTC'
+            'due_at'
         ]
 
         for attr in datestr_attrs:

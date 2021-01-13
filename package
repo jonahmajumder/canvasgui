@@ -7,8 +7,19 @@ echo "Running script to package Canvas app..."
 # clean directories
 rm -rf build dist
 
+# production version
+
 pyinstaller main.py \
     --windowed \
     --name CanvasBrowser \
     --icon icons/icon.icns \
-    --add-data 'icons/*.png:icons'
+    --add-data 'icons/*.png:icons' \
+
+# debug version
+
+# pyinstaller main.py \
+#     --name CanvasBrowser \
+#     --icon icons/icon.icns \
+#     --add-data 'icons/*.png:icons' \
+#     --log-level DEBUG \
+#     --debug all

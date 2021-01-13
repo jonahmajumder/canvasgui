@@ -17,11 +17,38 @@ The (hidden) preferences file is called `.canvasdefaults` and lives in the user'
 ```
 If any of these are deemed invalid (or no file is detected), a GUI will prompt the user to fill them in. This interface also allows the user to save entered credentials for future use.
 
-### Echo360 Support
+### External Feature Support
 
-My instution uses the [Echo360](https://echo360.com/) platform to host recorded lectures. The Canvas API presents this feature as an "external tool" without much access to the associated data. Because this is a feature I use frequently, I built the ability to access this data into my app. While the Echo360 platform exposes a RESTful API, it is not accessible to the average (student) user. Therefore, data is simply accessed via an authenticated `requests.session`. This means that the only credentials needed are those normally used with the [web interface](https://echo360.org/).
+The Canvas web interface provides access to many external features, visible as tabs for a specific course. The CanvasAPI provides only limited access to these features (referred to as "External Tools" within the API). This is largely due to the fact that API credentials do not generally provide access to the linked platforms. However, it is possible to access data from these features using an authenticated `requests.session`, essentially emulating the Canvas web interface. However, this authentication requires additional credentials beyond the API token required by all other operation of this application.
 
-Credentials can be included in a file analagous to `.canvasdefaults`, called `.echocredentials`, also located in the user's home directory (/Users/\<username\>/.echocredentials). It is also a json file and must have the (self-explanatory) keys `email` and `password`. If this file is not present (or incorrectly configured), the application will simply treat Echo360 features like any other external tool.
+Rather than attempt to build my own secure password entry/storage system, I decided to make use of the built-in macOS Keychain utility. This has the significant advantagesthe  of being secure, reliable, and easy to implement with the handy [keyring](https://pypi.org/project/keyring/) module.
+
+The procedure to provide authentication (on a Mac) is as follows:
+1. Open the macOS application Keychain Access and select the "login" keychain in the upper left-hand corner.
+2. Select "File" -> "New Password Item..." from the menu bar. A dialog should appear to add a new "keychain item." 
+3. Fill out the fields "Keychain Item Name," "Account Name," and "Password" as specified below, for each set of credentials. Click "Add" to save the new keychain item.
+4. Within the "login" keychain, scroll down to verify that a new "application password" is present with your specified name.
+
+##### Currently implemented credentials, and how to enter them:
+
+The [Echo360](https://echo360.com/) platform is used to host and access recorded lectures. Thecredentials needed are those normally used with the [web interface](https://echo360.org/). To provide authentication Echo360, a keychain item should be created with:
+```
+Keychain Item Name: echo360
+Account Name: <email used to log in to the Echo360 web interface>
+Password: <password used to log in to the Echo360 web interface>
+```
+
+Many other external tools can be accessed using your Canvas web interface credentials (typically institution-based). These can be included with a keychain item as follows:
+```
+Keychain Item Name: canvas
+Account Name: <login ID used to log in to the Canvas web interface>
+Password: <password used to log in to the Canvas web interface>
+```
+Unfortunately, this login process is highly institution-specific, and so is unlikely to work at a generic institution.
+
+##### Missing, Incorrect, or Mis-configured Credentials
+
+This application has been deliberately constructed such that a failure locate or authenticate with credentials should not affect normal functioning of the application. So if supplemental credentials are absent/incorrect, operation should continue normally without access to the relevant features.
 
 ### Nonstandard (Direct) Dependencies
 (All available on PyPI)
@@ -30,6 +57,7 @@ Credentials can be included in a file analagous to `.canvasdefaults`, called `.e
 - [CanvasAPI](https://pypi.org/project/canvasapi/)
 - [dateutil](https://pypi.org/project/python-dateutil/)
 - [BeautifulSoup](https://pypi.org/project/beautifulsoup4/)
+- [keyring](https://pypi.org/project/keyring/)
 
 Installing these packages via pip will automatically trigger installation of all other dependencies. See `requirements.txt` for the full list.
 

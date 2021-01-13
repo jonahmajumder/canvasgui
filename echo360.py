@@ -7,8 +7,6 @@ from urllib.parse import urlsplit, urlunsplit, unquote
 import json
 import re
 
-from secrets import EMAIL, ECHOPASSWORD
-
 def get_formdata(formelem):
     inputs = formelem.find_all('input')
     return {i.attrs['name']: i.attrs.get('value', '') for i in inputs}

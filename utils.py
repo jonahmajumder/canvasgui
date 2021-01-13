@@ -19,7 +19,15 @@ from classdefs import CourseItem, CONTENT_TYPES
 
 from locations import ResourceFile, HOME
 
-# from guihelper import disp_html
+import keyring
+
+# this is necessary to address issue where bundled app does not find keyring backend
+if sys.platform == 'darwin': # macOS solution
+    import keyring.backends.OS_X
+    keyring.set_keyring(keyring.backends.OS_X.Keyring())
+else: # Windows solution
+    import keyring.backends.Windows
+    keyring.set_keyring(keyring.backends.Windows.WinVaultKeyring())
 
 class InvalidPreferences(Exception):
     pass
@@ -34,7 +42,9 @@ class Preferences(QDialog):
     """
 
     AUTOLOAD_FILE = HOME / '.canvasdefaults'
-    ECHOCREDENTIAL_FILE = HOME / '.echocredentials'
+
+    CANVAS_KEY = 'canvas'
+    ECHO360_KEY = 'echo360'
 
     def __init__(self, canvasapp):
         super(Preferences, self).__init__()
@@ -44,8 +54,6 @@ class Preferences(QDialog):
         self.messages = []
 
         self.build()
-
-        self.load_echo_credentials()
 
         candidates = self.load_from_file(self.AUTOLOAD_FILE)
 
@@ -57,6 +65,8 @@ class Preferences(QDialog):
             validprefs = {k:v for (k,v) in candidates.items() if isvalid[k]}
             self.populate_fields(validprefs)
             self.run(cancellable=False)
+
+        self.get_web_credentials(self.current)
 
     def build(self):
         self.setWindowTitle('Canvas Preferences')
@@ -181,6 +191,18 @@ class Preferences(QDialog):
             candidates['defaultcontent'] = j.get('defaultcontent', 'modules')
 
         return candidates
+
+    def get_web_credentials(self, prefs):
+        canvas = Canvas(
+            prefs['baseurl'],
+            prefs['token']
+        )
+        profile = canvas.get_current_user().get_profile()
+        self.web_credentials = {
+            'canvas': keyring.get_credential(self.CANVAS_KEY, profile['login_id']),
+            'echo360': keyring.get_credential(self.ECHO360_KEY, profile['primary_email'])
+        }
+
 
     def load_echo_credentials(self):
         if self.ECHOCREDENTIAL_FILE.exists():

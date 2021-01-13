@@ -1,10 +1,12 @@
+# when app is bundled, this makes sure that all output is captured
+# by redirected stdout/stderr file
+from locations import *
+
 import sys
 
 from PyQt5.Qt import QApplication
 
 from app import CanvasApp
-
-# set_term_title(CanvasApp.TITLE)
 
 app = QApplication(sys.argv)
 gui = CanvasApp()
