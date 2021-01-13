@@ -8,11 +8,11 @@ secrets.py
 # other irrelevant stuff
 
 *.pyo
-
 *.html
+*.spec
+*.json
 
 dialogtest.py
-login.py
 
 canvasapi alias
 
