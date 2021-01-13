@@ -29,6 +29,10 @@ The procedure to provide authentication (on a Mac) is as follows:
 3. Fill out the fields "Keychain Item Name," "Account Name," and "Password" as specified below, for each set of credentials. Click "Add" to save the new keychain item.
 4. Within the "login" keychain, scroll down to verify that a new "application password" is present with your specified name.
 
+In the macOS operating system, applications need explicit authorization to access the macOS Keychain. Therefore, expect to see a dialog such as the one below when this application is run. Enter your local machine account password and select Allow (or Always Allow). It may be necessary to do this twice.
+
+<img src="keychain_permission.png" width="400">
+
 ##### Currently implemented credentials, and how to enter them:
 
 The [Echo360](https://echo360.com/) platform is used to host and access recorded lectures. Thecredentials needed are those normally used with the [web interface](https://echo360.org/). To provide authentication Echo360, a keychain item should be created with:
@@ -68,7 +72,7 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Autosaving/setting defaults file
 - [X] Editing of preferences during app operation
 - [X] Test changing user/auth credentials during app operation (i.e. resetting)
-- [ ] Conveying information about echo360 credentials to user (e.g. included, incorrect, etc.-- break preferences into sections?)
+- [ ] Conveying information about keyring credentials to user (dialog popup from menu bar?)
 
 ##### Tree Item Interaction
 - [X] Context menus for everything but expand
@@ -82,7 +86,7 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Different course icons to indicate current content mode
 - [X] Announcement/discussion topic support
 - [X] Select external tools from "tabs" rather than directly
-- [ ] Convert content handling to filter action (so all data persists but only relevant content shown)
+- [X] Convert content handling to filter action (so all data persists but only relevant content shown)
 
 ##### Overall GUI Functioning
 - [X] Better column resizing
@@ -90,13 +94,15 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Replace terminal printed lines with status bar text
 - [X] Dealing with duplicate children
 - [X] Filtering by semester
-- [ ] Make dialogs open in front of app (rather than on other monitor, etc.)
-- [ ] Allow "No" instead of cancel for confirm dialogs
+- [X] Make dialogs open in front of app (rather than on other monitor, etc.)
+- [X] Allow "No" instead of cancel for confirm dialogs
+- [ ] Multithereaded "expand all" functionality
 
 ##### Overall App Operation
 - [X] Convert from widget to model architecture
 - [X] Deployment into macOS (.app) standalone application
 - [X] Testing standalone .app on other machine
+- [X] Log file stdout/stderr when bundled
 - [ ] Create top menu for showing profile, opening preferences editor, about/credits/README/etc.
 - [ ] Application-level error handling?
 - [ ] Multithreaded retrieval of data for "expand all" (back burner)
