@@ -54,7 +54,7 @@ Unfortunately, this login process is highly institution-specific, and so is unli
 
 This application has been deliberately constructed such that a failure locate or authenticate with credentials should not affect normal functioning of the application. So if supplemental credentials are absent/incorrect, operation should continue normally without access to the relevant features.
 
-The best way to verify that credentials have been successfully loaded is to bring up the "User Profile" information (File -> Show User Profile). Successfully configured credentials will show up in a section titled "Web Credentials" at the bottom of the page.
+The best way to verify that credentials have been successfully loaded is to bring up the "User Profile" information ("File" -> "Show User Profile"). Successfully configured credentials will show up in a section titled "Web Credentials" at the bottom of the page.
 
 ### Nonstandard (Direct) Dependencies
 (All available on PyPI)
