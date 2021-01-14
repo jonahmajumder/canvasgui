@@ -2,21 +2,28 @@ import markdown
 from bs4 import BeautifulSoup
 import re
 from pathlib import Path
+import base64
 
 parent = Path(__file__).parent
 
+def path_to_file(filename):
+    return str(parent / filename)
+
 filename = 'README'
-mdfile = str(parent / '{}.md'.format(filename))
-htmlfile = str(parent / '{}.html'.format(filename))
+mdfile = path_to_file('{}.md'.format(filename))
+htmlfile = path_to_file('{}.html'.format(filename))
 
 with open(mdfile, 'r') as file:
     html = markdown.markdown(file.read())
 
 soup = BeautifulSoup(html, 'html.parser')
 
+# embed image in html
 imgs = soup.find_all('img')
 for img in imgs:
-    img['src'] = str(parent / img['src'])
+    data = open(path_to_file(img['src']), 'rb').read()
+    data_uri = base64.b64encode(data).decode('utf-8')
+    img['src'] = 'data:image/png;base64,{}'.format(data_uri)
 
 checked = soup.find_all('li', text=re.compile(r'\[X\].*'))
 unchecked = soup.find_all('li', text=re.compile(r'\[ \].*'))

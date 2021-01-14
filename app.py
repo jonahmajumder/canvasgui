@@ -49,6 +49,10 @@ class CanvasApp(QMainWindow):
 
         self.init_api()
 
+        # use credentials to do logins
+        # self.authenticate_session()
+        threading.Thread(target=self.authenticate_session).start()
+
         self.build()
 
         if self.preferences.message_present():
@@ -80,8 +84,6 @@ class CanvasApp(QMainWindow):
         )
         self.user = self.canvas.get_current_user()
         self.terms = self.unique_terms()
-
-        self.authenticate_session()
 
     def authenticate_session(self):
         if self.preferences.web_credentials['canvas'] is not None:
@@ -217,7 +219,7 @@ class CanvasApp(QMainWindow):
         self.statusBar()
 
         self.bar = self.menuBar()
-        self.file = self.bar.addMenu('File')
+        self.file = self.bar.addMenu('Info')
         self.file.addAction('Preferences', self.edit_preferences)
         self.file.addAction('Show User Profile', self.show_user, QKeySequence('Ctrl+U'))
         self.file.addAction('Show Help', self.show_readme, QKeySequence('Ctrl+Shift+H'))

@@ -1,4 +1,7 @@
 import sys
+
+sys.path.append(r'../canvas')
+
 from time import time
 
 from PyQt5.Qt import QApplication
@@ -24,20 +27,22 @@ while gui.model.rowCount() < courseitems:
 
 print('All {} items loaded.'.format(gui.model.rowCount()))
 
-start = time()
+# call expand on all items
 
-toplevel = [gui.model.invisibleRootItem().child(i, 0) for i in range(gui.model.rowCount())]
+# start = time()
 
-include = range(0, len(toplevel))
+# toplevel = [gui.model.invisibleRootItem().child(i, 0) for i in range(gui.model.rowCount())]
 
-for i, item in enumerate(toplevel):
-    if i in include:
-        try:
-            print('Expanding item {0}: {1}.'.format(i, item))
-            item.expand_recursive()
-        except Exception as e:
-            raise e
+# include = range(0, len(toplevel))
 
-expandtime = time() - start
+# for i, item in enumerate(toplevel):
+#     if i in include:
+#         try:
+#             print('Expanding item {0}: {1}.'.format(i, item))
+#             item.expand_recursive()
+#         except Exception as e:
+#             raise e
 
-print('Expand time: {:.2f} s'.format(expandtime))
+# expandtime = time() - start
+
+# print('Expand time: {:.2f} s'.format(expandtime))
