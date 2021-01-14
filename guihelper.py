@@ -26,16 +26,9 @@ def confirm_dialog(text, title='Confirm', yesno=False, parent=None):
     layout.addWidget(buttonBox)
     dlg.setLayout(layout)
 
-    # dlg.setGeometry(
-    #     QStyle.alignedRect(
-    #         Qt.LeftToRight,
-    #         Qt.AlignCenter,
-    #         QSize(100,100),
-    #         m.geometry())
-    # )
     return bool(dlg.exec_())
 
-def disp_html(htmlstr, title='HTML', parent=None):
+def disp_html(text, title='HTML', parent=None, width=600, height=600):
 
     m = parent if parent else QMainWindow() 
 
@@ -44,7 +37,7 @@ def disp_html(htmlstr, title='HTML', parent=None):
 
     viewer = QTextBrowser()
     viewer.setOpenExternalLinks(True)
-    viewer.setHtml(htmlstr)
+    viewer.setText(text)
 
     buttonBox = QDialogButtonBox(QDialogButtonBox.Ok)
     buttonBox.accepted.connect(dlg.accept)
@@ -58,7 +51,7 @@ def disp_html(htmlstr, title='HTML', parent=None):
         QStyle.alignedRect(
             Qt.LeftToRight,
             Qt.AlignCenter,
-            QSize(600,600),
+            QSize(width,height),
             m.geometry())
     )
     return dlg.exec_()
@@ -92,12 +85,8 @@ def alert(text, title='Alert', parent=None):
 
 if __name__ == '__main__':
     app = QApplication([])
-    s = """
-    <p><b>This text is bold</b></p>
-    <p><i>This text is italic</i></p>
-    <p>This is<sub> subscript</sub> and <sup>superscript</sup></p>
-    """
-    alert(s)
+    text = open('docs/README.html', 'r').read()
+    disp_html(text, title='Markdown')
 
 
     

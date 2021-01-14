@@ -4,7 +4,7 @@ This project builds on the open-source Python package [CanvasAPI](https://canvas
 
 Below is a depiction of content from my own classes, viewed at the "module" level.
 
-<img src="screenshot.png" width="800">
+<img src="docs/screenshot.png" width="600">
 
 Login is accomplished with an OAuth token (generated online via the user's profile page, as explained [here](https://canvas.instructure.com/doc/api/file.oauth.html#manual-token-generation)). That token, along with an institution-specific base URL, can be included in a file or entered manually.
 
@@ -29,13 +29,13 @@ The procedure to provide authentication (on a Mac) is as follows:
 3. Fill out the fields "Keychain Item Name," "Account Name," and "Password" as specified below, for each set of credentials. Click "Add" to save the new keychain item.
 4. Within the "login" keychain, scroll down to verify that a new "application password" is present with your specified name.
 
-In the macOS operating system, applications need explicit authorization to access the macOS Keychain. Therefore, expect to see a dialog such as the one below when this application is run. Enter your local machine account password and select Allow (or Always Allow). It may be necessary to do this twice.
+In the macOS operating system, applications need explicit authorization to access the macOS Keychain. Therefore, expect to see a dialog such as the one below when this application is run. Enter your local machine account password and select Allow (or Always Allow). It will be necessary to do this for each set of credentials used.
 
-<img src="keychain_permission.png" width="400">
+<img src="docs/keychain_permission.png" width="400">
 
-##### Currently implemented credentials, and how to enter them:
+#### Currently implemented credentials, and how to enter them:
 
-The [Echo360](https://echo360.com/) platform is used to host and access recorded lectures. Thecredentials needed are those normally used with the [web interface](https://echo360.org/). To provide authentication Echo360, a keychain item should be created with:
+The [Echo360](https://echo360.com/) platform is used to host and access recorded lectures. The credentials needed are those normally used with the [web interface](https://echo360.org/). To provide authentication Echo360, a keychain item should be created with:
 ```
 Keychain Item Name: echo360
 Account Name: <email used to log in to the Echo360 web interface>
@@ -50,9 +50,11 @@ Password: <password used to log in to the Canvas web interface>
 ```
 Unfortunately, this login process is highly institution-specific, and so is unlikely to work at a generic institution.
 
-##### Missing, Incorrect, or Mis-configured Credentials
+#### Missing, Incorrect, or Mis-configured Credentials
 
 This application has been deliberately constructed such that a failure locate or authenticate with credentials should not affect normal functioning of the application. So if supplemental credentials are absent/incorrect, operation should continue normally without access to the relevant features.
+
+The best way to verify that credentials have been successfully loaded is to bring up the "User Profile" information (File -> Show User Profile). Successfully configured credentials will show up in a section titled "Web Credentials" at the bottom of the page.
 
 ### Nonstandard (Direct) Dependencies
 (All available on PyPI)
@@ -67,14 +69,14 @@ Installing these packages via pip will automatically trigger installation of all
 
 ### To do list:
 
-##### Preferences
+#### Preferences
 - [X] Pereferences UI allowing specification of login credentials, download destination, default view
 - [X] Autosaving/setting defaults file
 - [X] Editing of preferences during app operation
 - [X] Test changing user/auth credentials during app operation (i.e. resetting)
 - [ ] Conveying information about keyring credentials to user (dialog popup from menu bar?)
 
-##### Tree Item Interaction
+#### Tree Item Interaction
 - [X] Context menus for everything but expand
 - [ ] Handling of right clicking on multiple items
 - [X] Course nicknaming by editing item (right click -> Rename)
@@ -82,13 +84,13 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Module downloading
 - [X] Automatic conversion of Excel files to PDFs (as with Word and Powerpoint files)
 
-##### Content Mode Handling
+#### Content Mode Handling
 - [X] Different course icons to indicate current content mode
 - [X] Announcement/discussion topic support
 - [X] Select external tools from "tabs" rather than directly
 - [X] Convert content handling to filter action (so all data persists but only relevant content shown)
 
-##### Overall GUI Functioning
+#### Overall GUI Functioning
 - [X] Better column resizing
 - [X] Sorting by date
 - [X] Replace terminal printed lines with status bar text
@@ -98,7 +100,7 @@ Installing these packages via pip will automatically trigger installation of all
 - [X] Allow "No" instead of cancel for confirm dialogs
 - [ ] Multithereaded "expand all" functionality
 
-##### Overall App Operation
+#### Overall App Operation
 - [X] Convert from widget to model architecture
 - [X] Deployment into macOS (.app) standalone application
 - [X] Testing standalone .app on other machine

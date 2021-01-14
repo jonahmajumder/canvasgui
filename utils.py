@@ -47,7 +47,7 @@ class Preferences(QDialog):
     ECHO360_KEY = 'echo360'
 
     def __init__(self, canvasapp):
-        super(Preferences, self).__init__()
+        super(Preferences, self).__init__(canvasapp)
         self.canvasapp = canvasapp # knows about parent
 
         self.current = {}
@@ -122,14 +122,6 @@ class Preferences(QDialog):
         self.fullLayout.addWidget(self.buttons)
 
         self.setLayout(self.fullLayout)
-
-        self.setGeometry(
-            QStyle.alignedRect(
-                Qt.LeftToRight,
-                Qt.AlignCenter,
-                QSize(400,100),
-                self.screen().geometry())
-        )
 
     def send_message(self, text):
         # only set up to store one message at the moment

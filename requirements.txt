@@ -1,9 +1,15 @@
+altgraph==0.17
 beautifulsoup4==4.9.3
 bs4==0.0.1
 canvasapi==2.1.0
 certifi==2020.12.5
 chardet==4.0.0
 idna==2.10
+keyring==21.8.0
+macholib==1.14
+Markdown==3.3.3
+pyinstaller==4.1
+pyinstaller-hooks-contrib==2020.11
 PyQt5==5.15.2
 PyQt5-sip==12.8.1
 python-dateutil==2.8.1

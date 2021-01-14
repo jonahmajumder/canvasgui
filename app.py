@@ -24,6 +24,8 @@ from classdefs import (
 from classdefs import SliderHLayout, CheckableComboBox
 from utils import Preferences
 
+from locations import ResourceFile
+
 class CanvasApp(QMainWindow):
     SIZE = (800, 600)
     TITLE = 'Canvas Browser'
@@ -216,8 +218,10 @@ class CanvasApp(QMainWindow):
 
         self.bar = self.menuBar()
         self.file = self.bar.addMenu('File')
-        self.file.addAction('Show User Profile', self.show_user)
-        self.file.addAction('Edit Preferences', self.edit_preferences)
+        self.file.addAction('Preferences', self.edit_preferences)
+        self.file.addAction('Show User Profile', self.show_user, QKeySequence('Ctrl+U'))
+        self.file.addAction('Show Help', self.show_readme, QKeySequence('Ctrl+Shift+H'))
+
 
     def center_on_screen(self):
         self.setGeometry(
@@ -345,19 +349,38 @@ class CanvasApp(QMainWindow):
             img_data_uri = base64.b64encode(img_content).decode('utf-8')
             html += '<br><img src="data:image/png;base64,{}">'.format(img_data_uri)
         if 'primary_email' in data:
-            html += '<h3>Email: {}</h3>'.format(data['primary_email'])
+            html += '<h4>Email: {}</h3>'.format(data['primary_email'])
         if 'login_id' in data:
-            html += '<h3>Login: {}</h3>'.format(data['login_id'])
+            html += '<h4>Login: {}</h3>'.format(data['login_id'])
         if 'bio' in data:
             html += '<p>{}</p>'.format(data['bio'])
+
+        auths = [self.CANVAS_AUTHENTICATED, self.ECHO_AUTHENTICATED]
+
+        if any(auths):
+            html += '<h3>Web Credentials (from Keychain)</h3>'
+            for auth, (name, cred) in zip(auths, self.preferences.web_credentials.items()):
+                if auth:
+                    html += '<p>'
+                    html += 'Keychain Item Name: {}<br/>'.format(name)
+                    html += 'Account Name: {}<br/>'.format(cred.username)
+                    html += 'Password: *********<br/>'
+                    html += '</p>'
+
         html += '</div>'
+
         return html
 
 # -------------------- MENU ACTION METHODS --------------------
 
     def show_user(self):
         htmlstr = self.generate_profile_html()
-        disp_html(htmlstr, title='Current User')
+        disp_html(htmlstr, title='Current User', parent=self)
+
+    def show_readme(self):
+        with open(ResourceFile('docs/README.html'),'r') as file:
+            htmlstr = file.read()
+        disp_html(htmlstr, title='Help', parent=self)
 
     def edit_preferences(self):
         self.preferences.populate_with_current()

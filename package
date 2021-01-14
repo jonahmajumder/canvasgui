@@ -7,19 +7,24 @@ echo "Running script to package Canvas app..."
 # clean directories
 rm -rf build dist
 
-# production version
+python docs/convert_readme.py
+
+# PRODUCTION VERSION
 
 pyinstaller main.py \
     --windowed \
     --name CanvasBrowser \
     --icon icons/icon.icns \
     --add-data 'icons/*.png:icons' \
+    --add-data 'docs/*.png:docs' \
+    --add-data 'docs/README.html:docs'
 
-# debug version
+# DEBUG VERSION
 
 # pyinstaller main.py \
 #     --name CanvasBrowser \
 #     --icon icons/icon.icns \
 #     --add-data 'icons/*.png:icons' \
+#     --add-data 'README.html' \
 #     --log-level DEBUG \
 #     --debug all

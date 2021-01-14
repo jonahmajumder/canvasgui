@@ -95,8 +95,9 @@ class CustomItem(QStandardItem):
             action.triggered.connect(d['function'])
 
     def run_context_menu(self, point):
-        if len(self.contextMenu.actions()) > 0:
-            action = self.contextMenu.exec_(point)
+        if self.isEnabled():
+            if len(self.contextMenu.actions()) > 0:
+                action = self.contextMenu.exec_(point)
             
     def course(self):
         # recursively find topmost parent
