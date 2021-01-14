@@ -4,7 +4,7 @@ This project builds on the open-source Python package [CanvasAPI](https://canvas
 
 Below is a depiction of content from my own classes, viewed at the "module" level.
 
-<img src="docs/screenshot.png" width="600">
+<img src="screenshot.png" width="600">
 
 Login is accomplished with an OAuth token (generated online via the user's profile page, as explained [here](https://canvas.instructure.com/doc/api/file.oauth.html#manual-token-generation)). That token, along with an institution-specific base URL, can be included in a file or entered manually.
 
@@ -31,7 +31,7 @@ The procedure to provide authentication (on a Mac) is as follows:
 
 In the macOS operating system, applications need explicit authorization to access the macOS Keychain. Therefore, expect to see a dialog such as the one below when this application is run. Enter your local machine account password and select Allow (or Always Allow). It will be necessary to do this for each set of credentials used.
 
-<img src="docs/keychain_permission.png" width="400">
+<img src="keychain_permission.png" width="400">
 
 #### Currently implemented credentials, and how to enter them:
 

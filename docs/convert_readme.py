@@ -14,6 +14,10 @@ with open(mdfile, 'r') as file:
 
 soup = BeautifulSoup(html, 'html.parser')
 
+imgs = soup.find_all('img')
+for img in imgs:
+    img['src'] = str(parent / img['src'])
+
 checked = soup.find_all('li', text=re.compile(r'\[X\].*'))
 unchecked = soup.find_all('li', text=re.compile(r'\[ \].*'))
 
