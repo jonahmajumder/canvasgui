@@ -16,7 +16,7 @@ def log_header():
 if IS_BUNDLED:
     RELATIVE_PATH = Path(sys._MEIPASS).parent / 'Resources'
 else:
-    RELATIVE_PATH = Path(__file__).parent
+    RELATIVE_PATH = Path(__file__).parents[1]
 
 # in Resource dir within app bundle
 def ResourceFile(path):
