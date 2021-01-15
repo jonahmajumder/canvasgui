@@ -4,7 +4,7 @@
 
 This project was born out of my frustration dealing with the Canvas web interface. I was tired of navigating inconsistently organized course pages and wasting time looking for the tabs and links I needed. I knew I (and hopefully others) would benefit from a streamlined interface providing quick access to all course materials.
 
-Below is a depiction of content from my own classes, viewed at the "module" level. I welcome feedback, and I hope it's useful!
+Below is a depiction of content from my own classes, viewed at the "module" level. To give it a try, download the [installer](https://github.com/jonahmajumder/canvasgui/blob/main/Canvas%20Browser.dmg?raw=true)-- I always welcome feedback!
 
 <img src="screenshot.png" width="600">
 
