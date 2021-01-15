@@ -30,7 +30,7 @@ class CustomItem(QStandardItem):
     (not intended to be instantiated directly)
     """
     def __init__(self, *args, **kwargs):
-        super(CustomItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
 
@@ -128,7 +128,7 @@ class CanvasItem(CustomItem):
 
     def __init__(self, *args, **kwargs):
         self.obj = kwargs.pop('object', None)
-        super(CanvasItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.process_name()
 
@@ -318,7 +318,7 @@ class CourseItem(CanvasItem):
         self.content = self.gui.contentTypeComboBox.currentIndex()
         self.downloadfolder = self.gui.preferences.current['downloadfolder']
 
-        super(CourseItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setEditable(True) # item is editable but nothing causes editing except explicit
 
@@ -471,7 +471,7 @@ class CourseModulesItem(CourseItem):
     CONTENT_TYPE_INDEX = 0
 
     def __init__(self, *args, **kwargs):
-        super(CourseModulesItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setIcon(QIcon(ResourceFile('icons/book_module.png')))
 
@@ -485,7 +485,7 @@ class CourseFilesItem(CourseItem):
     CONTENT_TYPE_INDEX = 1
 
     def __init__(self, *args, **kwargs):
-        super(CourseFilesItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setIcon(QIcon(ResourceFile('icons/book_folder.png')))
 
@@ -499,7 +499,7 @@ class CourseAssignmentsItem(CourseItem):
     CONTENT_TYPE_INDEX = 2
 
     def __init__(self, *args, **kwargs):
-        super(CourseAssignmentsItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setIcon(QIcon(ResourceFile('icons/book_assignment.png')))
 
@@ -513,7 +513,7 @@ class CourseToolsItem(CourseItem):
     CONTENT_TYPE_INDEX = 3
 
     def __init__(self, *args, **kwargs):
-        super(CourseToolsItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setIcon(QIcon(ResourceFile('icons/book_link.png')))
 
@@ -527,7 +527,7 @@ class CourseAnnouncementsItem(CourseItem):
     CONTENT_TYPE_INDEX = 4
 
     def __init__(self, *args, **kwargs):
-        super(CourseAnnouncementsItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setIcon(QIcon(ResourceFile('icons/book_announcement.png')))
 
@@ -541,7 +541,7 @@ class ExternalToolItem(CanvasItem):
     note: this is not great because some tools are inaccessible as these types of objects
     """
     def __init__(self, *args, **kwargs):
-        super(ExternalToolItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
@@ -566,7 +566,7 @@ class TabItem(CanvasItem):
     because all are "accessible"
     """
     def __init__(self, *args, **kwargs):
-        super(TabItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
@@ -604,7 +604,7 @@ class Echo360Item(TabItem):
     docstring for Echo360Item
     """
     def __init__(self, *args, **kwargs):
-        super(Echo360Item, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setIcon(QIcon(ResourceFile('icons/echo360.png')))
 
@@ -688,7 +688,7 @@ class Echo360LectureItem(CustomItem):
         # set up property to be used by date item
         self.obj.created_at = self.obj.lesson.createdAt
 
-        super(Echo360LectureItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.name = self.obj.lesson.name
 
@@ -779,7 +779,7 @@ class Echo360LectureItem(CustomItem):
 class APlusAttendanceItem(TabItem):
 
     def __init__(self, *args, **kwargs):
-        super(APlusAttendanceItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setIcon(QIcon(ResourceFile('icons/aplus.png')))
 
@@ -856,7 +856,7 @@ class APlusEventItem(CustomItem):
     def __init__(self, *args, **kwargs):
         self.obj = kwargs.pop('object', None)
 
-        super(APlusEventItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setText(self.obj.text)
 
@@ -922,7 +922,7 @@ class ExternalUrlItem(CanvasItem):
     have "external_url" property and little else (typically no date)
     """
     def __init__(self, *args, **kwargs):
-        super(ExternalUrlItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
@@ -942,7 +942,7 @@ class ModuleItem(CanvasItem):
     class for tree elements with corresponding canvasapi "module" objects
     """
     def __init__(self, *args, **kwargs):
-        super(ModuleItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Download Module', 'function': self.download}
@@ -1024,7 +1024,7 @@ class ModuleItemItem(CanvasItem):
     this class should only be instantiated when an "unknown" type is encountered
     """
     def __init__(self, *args, **kwargs):
-        super(ModuleItemItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
@@ -1047,7 +1047,7 @@ class FolderItem(CanvasItem):
     class for tree elements with corresponding canvasapi "folder" objects
     """
     def __init__(self, *args, **kwargs):
-        super(FolderItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Download Folder', 'function': self.download}
@@ -1097,7 +1097,7 @@ class FileItem(CanvasItem):
     class for tree elements with corresponding canvasapi "file" objects (within folders)
     """
     def __init__(self, *args, **kwargs):
-        super(FileItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Download', 'function': self.download}
@@ -1153,7 +1153,7 @@ class PageItem(CanvasItem):
     class for tree elements with corresponding canvasapi "page" objects
     """
     def __init__(self, *args, **kwargs):
-        super(PageItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Display HTML', 'function': self.display}
@@ -1179,7 +1179,7 @@ class QuizItem(CanvasItem):
     class for tree elements with corresponding canvasapi "quiz" objects
     """
     def __init__(self, *args, **kwargs):
-        super(QuizItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
@@ -1200,7 +1200,7 @@ class DiscussionItem(CanvasItem):
     meant for "discussion" type items (discussion_type: threaded)
     """
     def __init__(self, *args, **kwargs):
-        super(DiscussionItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         assert self.obj.discussion_type == 'threaded'
 
@@ -1226,7 +1226,7 @@ class AnnouncementItem(CanvasItem):
     meant for "discussion" type items (discussion_type: side_comment)
     """
     def __init__(self, *args, **kwargs):
-        super(AnnouncementItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         assert self.obj.discussion_type == 'side_comment'
 
@@ -1288,7 +1288,7 @@ class AssignmentItem(CanvasItem):
     class for tree elements with corresponding canvasapi "assigment" objects
     """
     def __init__(self, *args, **kwargs):
-        super(AssignmentItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
             {'displayname': 'Open', 'function': self.open}
@@ -1331,7 +1331,7 @@ class DateItem(QStandardItem):
 
     def __init__(self, *args, **kwargs):
         self.item = kwargs.pop('item')
-        super(DateItem, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.datetime = self.datetime_from_obj(self.item.obj)
 
         self.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
@@ -1418,7 +1418,7 @@ class CustomProxyModel(QSortFilterProxyModel):
         self.terms = kwargs.pop('terms', [])
         self.VISIBLE_TERM_IDS =  [t['id'] for t in self.terms] # initially all
 
-        super(QSortFilterProxyModel, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setSortRole(CanvasItem.SORTROLE)
 
@@ -1468,6 +1468,20 @@ class CustomProxyModel(QSortFilterProxyModel):
 
 # ---------------------------- CUSTOM WIDGETS -----------------------------
 
+class CustomSlider(QSlider):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+    def event(self, ev):
+        if isinstance(ev, QHelpEvent):
+            QToolTip.showText(ev.globalPos(), self.toolTipString())
+            return True
+        else:
+            return super().event(ev)
+
+    def toolTipString(self):
+        return ''
+
 class SliderHLayout(QHBoxLayout):
     """
     hlayout with labels on left and right, with 2 choices
@@ -1485,7 +1499,7 @@ class SliderHLayout(QHBoxLayout):
 
         self.startVal = kwargs.pop('startVal', False)
 
-        super(QHBoxLayout, self).__init__(*newargs, **kwargs)
+        super().__init__(*newargs, **kwargs)
 
         self.addFalseLabel()
         self.addSlider()
@@ -1498,7 +1512,7 @@ class SliderHLayout(QHBoxLayout):
         self.slider.valueChanged.connect(self.sliderValueChangedFcn)
 
     def addSlider(self):
-        self.slider = QSlider()
+        self.slider = CustomSlider()
         self.slider.setOrientation(Qt.Horizontal)
         self.slider.setMaximum(1)
         self.slider.setSingleStep(1)
@@ -1529,8 +1543,21 @@ class SliderHLayout(QHBoxLayout):
     def sliderValueChangedFcn(self, int):
         self.valueChanged.emit(bool(int))
 
+class CustomComboBox(QComboBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+    def event(self, ev):
+        if isinstance(ev, QHelpEvent):
+            QToolTip.showText(ev.globalPos(), self.toolTipString())
+            return True
+        else:
+            return super().event(ev)
 
-class CheckableComboBox(QComboBox):
+    def toolTipString(self):
+        return self.currentText()
+
+class CheckableComboBox(CustomComboBox):
     """
     subclass of QComboBox with checkable options
     """
@@ -1543,7 +1570,7 @@ class CheckableComboBox(QComboBox):
         self.title = listargs.pop(0)
         args = tuple(listargs)
 
-        super(CheckableComboBox, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.setItemDelegate(CustomStyledItemDelegate(self))
 
@@ -1590,7 +1617,10 @@ class CheckableComboBox(QComboBox):
 
     def checkedList(self):
         ischecked = self.checked()
-        return os.linesep.join([s for (s,b) in zip(self.strings(), self.checked()) if b])
+        return [s for (s,b) in zip(self.strings(), self.checked()) if b]
+
+    def toolTipString(self):
+        return 'Selected: {}'.format(', '.join(self.checkedList()))
 
     def selectionChangedFcn(self, item):
         self.selectionsChanged.emit(self.checked())
@@ -1605,13 +1635,27 @@ class CheckableComboBox(QComboBox):
         if idx > 0:
             self.toggleItem(self.model.item(idx,0))
             self.setCurrentIndex(0)
+        
+class CustomPushButton(QPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+    def event(self, ev):
+        if isinstance(ev, QHelpEvent):
+            QToolTip.showText(ev.globalPos(), self.toolTipString())
+            return True
+        else:
+            return super().event(ev)
+
+    def toolTipString(self):
+        return self.curreButton
 
 class CustomStyledItemDelegate(QStyledItemDelegate):
     """
     Fixes issue with macOS checkbox in qcombobox styling
     """
     def __init__(self, *args, **kwargs):
-        super(CustomStyledItemDelegate, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     """
     signature: paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) 
@@ -1619,6 +1663,6 @@ class CustomStyledItemDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         option = QStyleOptionViewItem(option) # cast?
         option.showDecorationSelected = False
-        super(CustomStyledItemDelegate, self).paint(painter, option, index)
+        super().paint(painter, option, index)
 
 

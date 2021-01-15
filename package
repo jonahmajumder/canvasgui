@@ -1,7 +1,6 @@
 #!/bin/bash
 # package python program to .app
 
-
 echo "Running script to package Canvas app..."
 
 # clean directories
@@ -11,13 +10,18 @@ python docs/convert_readme.py
 
 # PRODUCTION VERSION
 
-pyinstaller main.py \
+pyinstaller src/main.py \
     --windowed \
-    --name CanvasBrowser \
+    --name Canvas\ Browser \
     --icon icons/icon.icns \
     --add-data 'icons/*.png:icons' \
-    --add-data 'docs/*.png:docs' \
     --add-data 'docs/README.html:docs'
+
+rm -rf dist/Canvas\ Browser/
+
+cp docs/README.html dist/
+
+hdiutil create -volname Canvas\ Browser -srcfolder dist -ov Canvas\ Browser.dmg 
 
 # DEBUG VERSION
 
@@ -25,6 +29,6 @@ pyinstaller main.py \
 #     --name CanvasBrowser \
 #     --icon icons/icon.icns \
 #     --add-data 'icons/*.png:icons' \
-#     --add-data 'README.html' \
+#     --add-data 'docs/README.html:docs'
 #     --log-level DEBUG \
 #     --debug all

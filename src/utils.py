@@ -38,7 +38,7 @@ class Preferences(QDialog):
     baseurl
     token
     download location
-    show favorites?
+    default content type
     """
 
     AUTOLOAD_FILE = HOME / '.canvasdefaults'
@@ -47,7 +47,7 @@ class Preferences(QDialog):
     ECHO360_KEY = 'echo360'
 
     def __init__(self, canvasapp):
-        super(Preferences, self).__init__(canvasapp)
+        super().__init__(canvasapp)
         self.canvasapp = canvasapp # knows about parent
 
         self.current = {}

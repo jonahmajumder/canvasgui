@@ -12,11 +12,11 @@ secrets.py
 *.spec
 *.json
 
-dialogtest.py
-
 canvasapi alias
 
 .DS_Store
 src/__pycache__/*
+docs/__pycache__/*
 archive/*
 build/*
+dist/*

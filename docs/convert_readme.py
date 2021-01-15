@@ -14,9 +14,16 @@ mdfile = path_to_file('{}.md'.format(filename))
 htmlfile = path_to_file('{}.html'.format(filename))
 
 with open(mdfile, 'r') as file:
-    html = markdown.markdown(file.read())
+    mdstring = file.read()
 
+mdstring = mdstring.replace(r'\<username\>', '<span class="angled">username</span>')
+
+html = markdown.markdown(mdstring)
 soup = BeautifulSoup(html, 'html.parser')
+
+title = soup.find('h1')
+
+title.string = 3 * '&nbsp;' + title.string
 
 # embed image in html
 imgs = soup.find_all('img')
@@ -34,6 +41,16 @@ for li in checked:
 for li in unchecked:
     li['class'] = 'checkbox'
     li.string = str(li.string).replace('[ ]', '[&nbsp;&nbsp;]')
+
+for code in soup.find_all('code'):
+    code.string = code.string.replace('<', '&lt;')
+    code.string = code.string.replace('>', '&gt;')
+
+    code.string = code.string.replace('\n', '<br/>')
+
+for s in soup.find_all('span'):
+    s.string = '&lt;' + s.string + '&gt;'
+    s.unwrap()
 
 styletag = soup.new_tag('style', type='text/css')
 

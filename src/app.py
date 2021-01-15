@@ -19,7 +19,7 @@ from guihelper import disp_html
 from login import auth_canvas_session, auth_echo_session
 from classdefs import (
     CanvasItem, CourseItem, CONTENT_TYPES,
-    CustomProxyModel, CustomStyledItemDelegate
+    CustomProxyModel, CustomStyledItemDelegate, CustomComboBox, CustomPushButton
 )
 from classdefs import SliderHLayout, CheckableComboBox
 from utils import Preferences
@@ -120,9 +120,12 @@ class CanvasApp(QMainWindow):
 
     def build(self):
 
-        self.contentTypeComboBox = QComboBox()
+        self.contentTypeComboBox = CustomComboBox()
         for ct in CONTENT_TYPES:
             self.contentTypeComboBox.addItem(ct['displayname'])
+
+        self.contentTypeComboBox.toolTipString = \
+            lambda: 'Change course display (currently showing {})'.format(self.contentTypeComboBox.currentText().lower())
 
         # use preferences to set content type combo box
         self.contentTypeComboBox.setCurrentIndex(self.preferences.current['defaultcontent'])
@@ -135,7 +138,9 @@ class CanvasApp(QMainWindow):
         self.contentTypeLayout.setStretch(1, 2)
         self.contentTypeLayout.setStretch(2, 1)
 
-        self.expandButton = QPushButton('Expand All')
+        self.expandButton = CustomPushButton('Expand All')
+        self.expandButton.toolTipString = \
+            lambda: 'Expand selected items' if len(self.selected_canvasitems()) > 0 else 'Expand all items'
 
         self.expandLayout = QHBoxLayout()
         self.expandLayout.addItem(QSpacerItem(20,40))
@@ -157,6 +162,8 @@ class CanvasApp(QMainWindow):
         self.controlGroup.setLayout(self.controlLayout)
 
         self.favoriteSlider = SliderHLayout('All Courses', 'Favorites', startVal=True)
+        self.favoriteSlider.slider.toolTipString = \
+            lambda: 'Show all courses' if self.favoriteSlider.value() else 'Show only favorite courses'
 
         self.termComboBox = CheckableComboBox('Select Semester(s)')
         for t in self.terms:
@@ -382,7 +389,7 @@ class CanvasApp(QMainWindow):
     def show_readme(self):
         with open(ResourceFile('docs/README.html'),'r') as file:
             htmlstr = file.read()
-        disp_html(htmlstr, title='Help', parent=self)
+        disp_html(htmlstr, title='Help', parent=self, width=700, height=700)
 
     def edit_preferences(self):
         self.preferences.populate_with_current()
