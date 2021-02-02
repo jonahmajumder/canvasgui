@@ -49,7 +49,7 @@ class CanvasApp(QMainWindow):
 
         self.init_api()
 
-        # use credentials to do logins
+        # use credentials to do logins (NOT the problem)
         # self.authenticate_session()
         threading.Thread(target=self.authenticate_session).start()
 
@@ -59,7 +59,8 @@ class CanvasApp(QMainWindow):
             self.print(self.preferences.get_message(), 0)
 
         #populate courses after loading
-        threading.Thread(target=self.add_courses).start()
+        self.add_courses()
+        # threading.Thread(target=self.add_courses).start()
 
         self.connect_signals()
 
@@ -325,7 +326,8 @@ class CanvasApp(QMainWindow):
         for classtype in classtypes:
             for (i, course, nickname) in zip(range(numcourses), courses, nicknames):
                 fcn = lambda: self.make_and_add_courseitem(course, nickname, classtype)
-                threading.Thread(target=fcn).start()
+                fcn()
+                # threading.Thread(target=fcn).start()
 
     def make_and_add_courseitem(self, course, nickname, classtype):
         item = classtype(object=course, gui=self, nickname=nickname)

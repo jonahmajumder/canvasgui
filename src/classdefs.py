@@ -43,7 +43,11 @@ class CustomItem(QStandardItem):
         pass
 
     def expand(self, **kwargs):
-        pass
+        if 'Refresh' not in [a['displayname'] for a in self.CONTEXT_MENU_ACTIONS]:
+            self.CONTEXT_MENU_ACTIONS.extend([
+                {'displayname': 'Refresh', 'function': self.reexpand}
+            ])
+            self.update_context_menu()
 
     def reexpand(self, **kwargs):
         self.removeRows(0, self.rowCount())
@@ -390,7 +394,7 @@ class CourseItem(CanvasItem):
             self.set_nickname(self.text())
 
     def expand(self, **kwargs):
-        self.expanders[self.content]()
+        super().expand(**kwargs)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
@@ -477,6 +481,7 @@ class CourseModulesItem(CourseItem):
 
     def expand(self, **kwargs):
         self.get_modules()
+        super().expand(**kwargs)
 
 class CourseFilesItem(CourseItem):
     """
@@ -491,6 +496,7 @@ class CourseFilesItem(CourseItem):
 
     def expand(self, **kwargs):
         self.get_filesystem()
+        super().expand(**kwargs)
 
 class CourseAssignmentsItem(CourseItem):
     """
@@ -505,6 +511,7 @@ class CourseAssignmentsItem(CourseItem):
 
     def expand(self, **kwargs):
         self.get_assignments()
+        super().expand(**kwargs)
 
 class CourseToolsItem(CourseItem):
     """
@@ -519,6 +526,7 @@ class CourseToolsItem(CourseItem):
 
     def expand(self, **kwargs):
         self.get_tools()
+        super().expand(**kwargs)
 
 class CourseAnnouncementsItem(CourseItem):
     """
@@ -533,7 +541,7 @@ class CourseAnnouncementsItem(CourseItem):
 
     def expand(self, **kwargs):
         self.get_announcements()
-
+        super().expand(**kwargs)
 
 class ExternalToolItem(CanvasItem):
     """
@@ -669,6 +677,8 @@ class Echo360Item(TabItem):
         else:
             self.print('Course is not activated on Echo360.')
 
+        super().expand(**kwargs)
+
     def open(self, **kwargs):
         self.open_and_notify(self.desturl)
 
@@ -783,7 +793,25 @@ class APlusAttendanceItem(TabItem):
 
         self.setIcon(QIcon(ResourceFile('icons/aplus.png')))
 
+        self.CONTEXT_MENU_ACTIONS.extend([
+            {'displayname': 'Display Summary', 'function': self.display}
+        ])
+        self.update_context_menu()
+
         # self.get_events()
+
+    def get_summary(self):
+        r1 = self.follow_sessionless_url()
+        soup1 = BeautifulSoup(r1.text, 'html.parser')
+
+        summarylink = soup1.find(class_='stv_tt_title').find('a')
+        summaryurl = parse.urljoin(r1.url, summarylink.attrs['href'])
+
+        r2 = self.auth_get(summaryurl)
+        assert r2.ok
+
+        soup2 = BeautifulSoup(r2.text, 'html.parser')
+        return str(soup2.find(id='content'))
 
     def get_events(self):
         r = self.follow_sessionless_url()
@@ -844,6 +872,11 @@ class APlusAttendanceItem(TabItem):
 
         if len(evs) == 0:
             self.setEnabled(False)
+
+        super().expand(**kwargs)
+
+    def display(self, **kwargs):
+        disp_html(self.get_summary(), title=self.text(), parent=self.course().gui)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
@@ -993,6 +1026,8 @@ class ModuleItem(CanvasItem):
         if len(items) == 0:
             self.setEnabled(False)
 
+        super().expand(**kwargs)
+
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
 
@@ -1066,6 +1101,8 @@ class FolderItem(CanvasItem):
         for folder in self.safe_get_folders():
             item = FolderItem(object=folder)
             self.append_item_row(item)
+
+        super().expand(**kwargs)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
@@ -1164,6 +1201,7 @@ class PageItem(CanvasItem):
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.body, **kwargs)
+        super().expand(**kwargs)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
@@ -1213,6 +1251,7 @@ class DiscussionItem(CanvasItem):
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.message, **kwargs)
+        super().expand(**kwargs)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
@@ -1275,6 +1314,7 @@ class AnnouncementItem(CanvasItem):
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.message, **kwargs)
+        super().expand(**kwargs)
 
     def dblClickFcn(self, **kwargs):
         self.display(**kwargs)
@@ -1299,6 +1339,7 @@ class AssignmentItem(CanvasItem):
 
     def expand(self, **kwargs):
         self.children_from_html(self.obj.description, **kwargs)
+        super().expand(**kwargs)
 
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)

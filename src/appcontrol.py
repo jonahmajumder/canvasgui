@@ -9,13 +9,6 @@ def run_osascript(script, args=[]):
     stdout, stderr = p.communicate(script)
     return stdout
 
-termtitle = """
-tell application "Terminal" to set custom title of first window to "{}"
-"""
-
-def set_term_title(title):
-    run_osascript(termtitle.format(title))
-
 wordscript = """
 tell application "Microsoft Word"
     launch
@@ -85,5 +78,4 @@ def convert(*args):
     ret = run_osascript(formatted)
 
 if __name__ == '__main__':
-     f = '/Users/jonahmajumder/Downloads/Case 2 WES.xlsx'
-     convert(f)
+    pass

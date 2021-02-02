@@ -3,6 +3,12 @@
 
 echo "Running script to package Canvas app..."
 
+exe=$(which python)
+if [ "$exe" != $HOME/.virtualenvs/canvas-shared/bin/python ]; then
+    echo "Must be run in 'flask' virtualenv!";
+    exit 1;
+fi
+
 # clean directories
 rm -rf build dist
 
