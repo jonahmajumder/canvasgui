@@ -66,6 +66,8 @@ class Preferences(QDialog):
             self.populate_fields(validprefs)
             self.run(cancellable=False)
 
+        self.contentComboBox.currentIndexChanged.connect(self.check_content_changed)
+
         self.get_web_credentials(self.current)
 
     def build(self):
@@ -105,6 +107,7 @@ class Preferences(QDialog):
         self.saveLabel.setAlignment(Qt.AlignRight)
         self.saveLayout.addWidget(self.saveLabel)
         self.saveValidated = QCheckBox()
+        self.saveValidated.setTristate(False)
         self.saveLayout.addWidget(self.saveValidated)
         self.saveLayout.setStretch(0, 1)
         self.saveLayout.setStretch(1, 0)
@@ -160,6 +163,9 @@ class Preferences(QDialog):
         assert all(isvalid.values()) 
 
         self.populate_fields(validated)
+
+    def check_content_changed(self, newindex):
+        self.saveValidated.setChecked(newindex != self.current['defaultcontent'])
 
     def gather_fields(self):
         prefs = {

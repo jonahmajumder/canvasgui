@@ -2,6 +2,7 @@ import sys
 from time import time
 import webbrowser
 import base64
+import subprocess
 
 from json.decoder import JSONDecodeError
 
@@ -19,9 +20,10 @@ from guihelper import disp_html
 from login import auth_canvas_session, auth_echo_session
 from classdefs import (
     CanvasItem, CourseItem, CONTENT_TYPES,
-    CustomProxyModel, CustomStyledItemDelegate, CustomComboBox, CustomPushButton
+    CustomProxyModel, CustomStyledItemDelegate, CustomComboBox, CustomPushButton,
+    SliderHLayout, CheckableComboBox
 )
-from classdefs import SliderHLayout, CheckableComboBox
+
 from utils import Preferences
 
 from locations import ResourceFile
@@ -49,7 +51,7 @@ class CanvasApp(QMainWindow):
 
         self.init_api()
 
-        # use credentials to do logins (NOT the problem)
+        # use credentials to do logins
         # self.authenticate_session()
         threading.Thread(target=self.authenticate_session).start()
 
@@ -59,8 +61,8 @@ class CanvasApp(QMainWindow):
             self.print(self.preferences.get_message(), 0)
 
         #populate courses after loading
-        self.add_courses()
-        # threading.Thread(target=self.add_courses).start()
+        # self.add_courses()
+        threading.Thread(target=self.add_courses).start()
 
         self.connect_signals()
 
@@ -227,10 +229,13 @@ class CanvasApp(QMainWindow):
         self.statusBar()
 
         self.bar = self.menuBar()
-        self.file = self.bar.addMenu('Info')
+        self.file = self.bar.addMenu('Actions')
         self.file.addAction('Preferences', self.edit_preferences)
+        self.file.addAction('Open Downloads', self.open_downloads, QKeySequence('Ctrl+O'))
         self.file.addAction('Show User Profile', self.show_user, QKeySequence('Ctrl+U'))
-        self.file.addAction('Show Help', self.show_readme, QKeySequence('Ctrl+Shift+H'))
+
+        self.help = self.bar.addMenu('Help')
+        self.help.addAction('{} Help'.format(self.TITLE), self.show_readme, QKeySequence('Ctrl+Shift+H'))
 
 
     def center_on_screen(self):
@@ -262,9 +267,19 @@ class CanvasApp(QMainWindow):
             item.dblClickFcn(contentTypeIndex=self.contentTypeComboBox.currentIndex())
 
     def tree_right_click(self, point):
-        sourceindex = self.proxyModel.mapToSource(self.tree.indexAt(point))
-        item = self.model.itemFromIndex(sourceindex)
-        item.run_context_menu(self.tree.viewport().mapToGlobal(point))
+        selected = [item for item in self.selected_canvasitems() if item.isEnabled()]
+        if len(selected) > 1:
+            action_names = self.generate_common_actions(selected)
+            if len(action_names) > 0:
+                menu = QMenu()
+                for name in action_names:
+                    action = menu.addAction(name)
+                    action.triggered.connect(self.multiitem_callback_generator(selected, name))
+                action = menu.exec_(self.tree.viewport().mapToGlobal(point))
+        else:
+            sourceindex = self.proxyModel.mapToSource(self.tree.indexAt(point))
+            item = self.model.itemFromIndex(sourceindex)
+            item.run_context_menu(self.tree.viewport().mapToGlobal(point))
 
         # for item in self.selected_canvasitems():
         #     item.run_context_menu(self.tree.viewport().mapToGlobal(point))
@@ -278,6 +293,18 @@ class CanvasApp(QMainWindow):
 
     def selected_canvasitem(self):
         return self.selected_canvasitems()[0]
+
+    def generate_common_actions(self, items):
+        namesets = [set([a['displayname'] for a in item.CONTEXT_MENU_ACTIONS]) for item in items]
+        return list(set.intersection(*namesets))
+
+    def multiitem_callback_generator(self, items, actionname):
+        callbacks = []
+        for item in items:
+            action = [a for a in item.CONTEXT_MENU_ACTIONS if a['displayname'] == actionname][0]
+            callbacks.append(action['function'])
+
+        return lambda: [cb(confirm=False) for cb in callbacks]
 
 # -------------------- FUNCTIONAL METHODS --------------------
 
@@ -403,4 +430,9 @@ class CanvasApp(QMainWindow):
             self.init_api() # reset canvasapi instance
             self.synchronize_terms_to_gui() # account for potentially new set of course terms
             self.reset_courses() # trigger repopulation of classes
+
+    def open_downloads(self):
+        folder = self.preferences.current['downloadfolder']
+        subprocess.check_call(['open', folder])
+
 

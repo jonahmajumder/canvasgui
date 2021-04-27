@@ -1,6 +1,7 @@
 import sys
 from time import time
 import json
+import math
 from types import SimpleNamespace
 import os
 import re
@@ -9,6 +10,8 @@ import webbrowser
 import pytz
 from dateutil.parser import isoparse
 from datetime import datetime
+import requests
+import threading
 
 from PyQt5.Qt import *
 from PyQt5.QtGui import *
@@ -21,7 +24,7 @@ from canvasapi import Canvas
 from canvasapi.favorite import Favorite
 from canvasapi.exceptions import Unauthorized, ResourceDoesNotExist
 from appcontrol import convert, CONVERTIBLE_EXTENSIONS
-from guihelper import disp_html, confirm_dialog
+from guihelper import disp_html, confirm_dialog, DownloadDialog, alert
 from locations import ResourceFile
 
 class CustomItem(QStandardItem):
@@ -29,6 +32,8 @@ class CustomItem(QStandardItem):
     base class for everything!
     (not intended to be instantiated directly)
     """
+    # 
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -45,7 +50,7 @@ class CustomItem(QStandardItem):
     def expand(self, **kwargs):
         if 'Refresh' not in [a['displayname'] for a in self.CONTEXT_MENU_ACTIONS]:
             self.CONTEXT_MENU_ACTIONS.extend([
-                {'displayname': 'Refresh', 'function': self.reexpand}
+                {'displayname': 'Refresh', 'function': self.reexpand, 'multiitem': True}
             ])
             self.update_context_menu()
 
@@ -324,7 +329,7 @@ class CourseItem(CanvasItem):
 
         super().__init__(*args, **kwargs)
 
-        self.setEditable(True) # item is editable but nothing causes editing except explicit
+        self.setEditable(True) # item is editable but nothing causes editing except explicit call
 
         self.init_from_obj()
 
@@ -344,16 +349,16 @@ class CourseItem(CanvasItem):
         if self.obj.is_favorite:
             self.favoriteobj = Favorite(self.obj._requester, {'context_id': self.obj.id, 'context_type': 'course'})
             self.CONTEXT_MENU_ACTIONS.extend([
-                {'displayname': 'Remove Favorite', 'function': self.remove_favorite}
+                {'displayname': 'Remove Favorite', 'function': self.remove_favorite, 'multiitem': True}
             ])
         else:
             self.favoriteobj = None
             self.CONTEXT_MENU_ACTIONS.extend([
-                {'displayname': 'Add Favorite', 'function': self.add_favorite}
+                {'displayname': 'Add Favorite', 'function': self.add_favorite, 'multiitem': True}
             ])
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Edit Nickname', 'function': self.edit_text}
+            {'displayname': 'Edit Nickname', 'function': self.edit_text, 'multiitem': False}
         ])
 
         self.update_context_menu()
@@ -399,6 +404,27 @@ class CourseItem(CanvasItem):
     def dblClickFcn(self, **kwargs):
         self.expand(**kwargs)
 
+    def safe_get_item(self, method, id):
+        try:
+            return getattr(self.obj, method)(id)
+        except Unauthorized:
+            self.print('Unauthorized!')
+            return None
+        except ResourceDoesNotExist:
+            self.print('Resource "{0}" (via "{1}") not found for course "{2}".'.format(id, method, self.name))
+            return None
+
+class CourseModulesItem(CourseItem):
+    """
+    CourseItem which expands modules
+    """
+    CONTENT_TYPE_INDEX = 0
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.setIcon(QIcon(ResourceFile('icons/book_module.png')))
+
     def get_modules(self):
         ct = 0
         for m in self.obj.get_modules():
@@ -407,6 +433,22 @@ class CourseItem(CanvasItem):
             ct += 1
         if ct == 0:
             self.setEnabled(False) # if module is empty
+
+    def expand(self, **kwargs):
+        # threading.Thread(target=self.get_modules).start()
+        self.get_modules()
+        super().expand(**kwargs)
+
+class CourseFilesItem(CourseItem):
+    """
+    CourseItem which expands filesystem
+    """
+    CONTENT_TYPE_INDEX = 1
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.setIcon(QIcon(ResourceFile('icons/book_folder.png')))
 
     def get_root_folder(self):
         all_folders = self.obj.get_folders()
@@ -431,68 +473,6 @@ class CourseItem(CanvasItem):
         else:
             self.setEnabled(False)
 
-    def get_assignments(self):
-        assignments = self.obj.get_assignments()
-        if len(list(assignments)) > 0:
-            for a in assignments:
-                item = AssignmentItem(object=a)
-                self.append_item_row(item)
-        else:
-            self.setEnabled(False)
-
-    def get_tools(self):
-        tabs = [t for t in self.obj.get_tabs() if t.type == 'external']
-        if len(tabs) > 0:
-            for t in tabs:
-                item = self.toolitem_from_obj(t)
-                self.append_item_row(item)
-        else:
-            self.setEnabled(False)
-
-    def get_announcements(self):
-        announcements = self.obj.get_discussion_topics(only_announcements=True)
-        if len(list(announcements)) > 0:
-            for a in announcements:
-                item = AnnouncementItem(object=a)
-                self.append_item_row(item)
-        else:
-            self.setEnabled(False)
-
-    def safe_get_item(self, method, id):
-        try:
-            return getattr(self.obj, method)(id)
-        except Unauthorized:
-            self.print('Unauthorized!')
-            return None
-        except ResourceDoesNotExist:
-            self.print('Resource "{0}" (via "{1}") not found for course "{2}".'.format(id, method, self.name))
-            return None
-
-class CourseModulesItem(CourseItem):
-    """
-    CourseItem which expands modules
-    """
-    CONTENT_TYPE_INDEX = 0
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.setIcon(QIcon(ResourceFile('icons/book_module.png')))
-
-    def expand(self, **kwargs):
-        self.get_modules()
-        super().expand(**kwargs)
-
-class CourseFilesItem(CourseItem):
-    """
-    CourseItem which expands filesystem
-    """
-    CONTENT_TYPE_INDEX = 1
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.setIcon(QIcon(ResourceFile('icons/book_folder.png')))
 
     def expand(self, **kwargs):
         self.get_filesystem()
@@ -509,6 +489,15 @@ class CourseAssignmentsItem(CourseItem):
 
         self.setIcon(QIcon(ResourceFile('icons/book_assignment.png')))
 
+    def get_assignments(self):
+        assignments = self.obj.get_assignments()
+        if len(list(assignments)) > 0:
+            for a in assignments:
+                item = AssignmentItem(object=a)
+                self.append_item_row(item)
+        else:
+            self.setEnabled(False)
+
     def expand(self, **kwargs):
         self.get_assignments()
         super().expand(**kwargs)
@@ -523,6 +512,15 @@ class CourseToolsItem(CourseItem):
         super().__init__(*args, **kwargs)
 
         self.setIcon(QIcon(ResourceFile('icons/book_link.png')))
+
+    def get_tools(self):
+        tabs = [t for t in self.obj.get_tabs() if t.type == 'external']
+        if len(tabs) > 0:
+            for t in tabs:
+                item = self.toolitem_from_obj(t)
+                self.append_item_row(item)
+        else:
+            self.setEnabled(False)
 
     def expand(self, **kwargs):
         self.get_tools()
@@ -539,6 +537,15 @@ class CourseAnnouncementsItem(CourseItem):
 
         self.setIcon(QIcon(ResourceFile('icons/book_announcement.png')))
 
+    def get_announcements(self):
+        announcements = self.obj.get_discussion_topics(only_announcements=True)
+        if len(list(announcements)) > 0:
+            for a in announcements:
+                item = AnnouncementItem(object=a)
+                self.append_item_row(item)
+        else:
+            self.setEnabled(False)
+
     def expand(self, **kwargs):
         self.get_announcements()
         super().expand(**kwargs)
@@ -552,7 +559,7 @@ class ExternalToolItem(CanvasItem):
         super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Open', 'function': self.open}
+            {'displayname': 'Open', 'function': self.open, 'multiitem': True}
         ])
         self.update_context_menu()
 
@@ -577,7 +584,7 @@ class TabItem(CanvasItem):
         super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Open', 'function': self.open}
+            {'displayname': 'Open', 'function': self.open, 'multiitem': True}
         ])
 
         self.update_context_menu()
@@ -690,6 +697,8 @@ class Echo360LectureItem(CustomItem):
     class for individual echo360 lectures
     notably NOT a CanvasItem (and has no canvas obj)
     """
+    durationRE = re.compile(r'PT([\d\.]+)S')
+
     def __init__(self, *args, **kwargs):
         self.json = kwargs.pop('json', None)
 
@@ -708,9 +717,9 @@ class Echo360LectureItem(CustomItem):
         self.setData(self.name, CanvasItem.SORTROLE)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Show Info', 'function': self.show_info},
-            {'displayname': 'Open', 'function': self.open},
-            {'displayname': 'Download', 'function': self.download}
+            {'displayname': 'Show Info', 'function': self.show_info, 'multiitem': False},
+            {'displayname': 'Open', 'function': self.open, 'multiitem': True},
+            {'displayname': 'Download', 'function': self.download, 'multiitem': True}
         ])
         self.update_context_menu()
 
@@ -729,7 +738,13 @@ class Echo360LectureItem(CustomItem):
             return item
 
     def calculate_duration(self):
-        pass
+        m = self.durationRE.match(self.obj.video.media.media.current.duration)
+        self.duration_seconds = round(float(m.group(1)))
+        self.duration_dict = {
+            'hours': self.duration_seconds // 3600,
+            'minutes': (self.duration_seconds % 3600) // 60,
+            'seconds': self.duration_seconds % 60
+        }
 
     def make_url(self, path):
         newparts = self.parent().urlparts._replace(path=str(path))
@@ -739,7 +754,8 @@ class Echo360LectureItem(CustomItem):
         return self.obj.lesson.id
 
     def show_info(self):
-        print(self.obj)
+        htmlstr = self.generate_info_html()
+        alert(htmlstr, title='Lecture Video Info', parent=self.course().gui)
 
     def dblClickFcn(self, **kwargs):
         self.open(**kwargs)
@@ -756,11 +772,17 @@ class Echo360LectureItem(CustomItem):
         downloadpath = Path('media/download/{0}/video/{1}'.format(media_id, online_filename))
         return self.make_url(downloadpath)
 
-    def fetch_and_save_data(self, url, filepath):
-        r = self.parent().auth_get(u)
-        with open(str(filepath), 'wb') as fileobj:
-            fileobj.write(r.content)
-        self.print('{} downloaded.'.format(filepath.name))
+    def fetch_and_save_data(self, url, filepath): # STREAM DOWNLOAD
+        req = self.parent().obj._requester
+        r = req._session.get(url, stream=True) # session has echo360 authentication cookies
+
+        if r.ok:
+            d = DownloadDialog(self.course().gui, filepath=filepath, request=r)
+            d.accepted.connect(lambda: self.print('{} downloaded.'.format(filepath.name)))
+            d.rejected.connect(lambda: self.print('Download of {} aborted.'.format(filepath.name)))
+            d.show()
+        else:
+            self.print('Download of {0} failed (error code {1}: "{2}").'.format(filepath.name, r.status_code, r.reason))
 
     def download(self, **kwargs):
         confirm = kwargs.get('confirm', True)
@@ -786,6 +808,44 @@ class Echo360LectureItem(CustomItem):
             else:
                 self.print('{0} already exists at {1}; file not replaced.'.format(filename, loc))
 
+    def si_ify_size(self, number):
+        prefixes = ['', 'k', 'M', 'G', 'T']
+        pow10 = math.floor(math.log10(number))
+        prefix = prefixes[pow10 // 3]
+        quantity = number / (10 ** pow10)
+        return '{0:.1f} {1}B'.format(quantity, prefix)
+
+    def generate_info_html(self):
+        html = '<div align="center">'
+        html += '<h2>{}</h2>'.format(self.obj.lesson.name)     
+        if self.duration_dict['hours'] > 0:
+            html += '<h3>Duration: {hours} hrs, {minutes} min, {seconds} sec</h3>'.format(**self.duration_dict)
+        elif self.duration_dict['minutes'] > 0:
+            html += '<h3>Duration: {minutes} min, {seconds} sec</h3>'.format(**self.duration_dict)
+        else:
+            html += '<h3>Duration: {seconds} sec</h3>'.format(**self.duration_dict)
+
+        html += '<p>Files:</p>'
+        html += '<ul align="left">'
+        html += '<li>Original: {}</li>'.format(self.si_ify_size(self.obj.video.media.media.originalFile.sizeInBytes))
+        videofiles = self.obj.video.media.media.current.primaryFiles
+        videofiles.sort(reverse=True, key=lambda f: f.size)
+        html += '<li>High Definition ({0}x{1}): {2}</li>'.format(
+            videofiles[0].width, videofiles[0].height, self.si_ify_size(videofiles[0].size)
+        )
+        html += '<li>Standard Definition ({0}x{1}): {2}</li>'.format(
+            videofiles[1].width, videofiles[1].height, self.si_ify_size(videofiles[1].size)
+        )
+        audiofile = self.obj.video.media.media.current.audioFiles[0]
+        html += '<li>Audio Only: {}</li>'.format(
+            self.si_ify_size(audiofile.size)
+        )
+        html += '</ul>'
+
+        html += '</div>'
+
+        return html
+
 class APlusAttendanceItem(TabItem):
 
     def __init__(self, *args, **kwargs):
@@ -794,7 +854,7 @@ class APlusAttendanceItem(TabItem):
         self.setIcon(QIcon(ResourceFile('icons/aplus.png')))
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Display Summary', 'function': self.display}
+            {'displayname': 'Display Summary', 'function': self.display, 'multiitem': False}
         ])
         self.update_context_menu()
 
@@ -896,7 +956,7 @@ class APlusEventItem(CustomItem):
         if self.obj.status == 'open':
             self.setIcon(QIcon(ResourceFile('icons/open.png')))
             self.CONTEXT_MENU_ACTIONS.extend([
-                {'displayname': 'Record Attendance', 'function': self.record_attendance}
+                {'displayname': 'Record Attendance', 'function': self.record_attendance, 'multiitem': True}
             ])
         elif self.obj.status == 'missed':
             self.setIcon(QIcon(ResourceFile('icons/missed.png')))
@@ -904,7 +964,7 @@ class APlusEventItem(CustomItem):
             self.setIcon(QIcon(ResourceFile('icons/recorded.png')))
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Open', 'function': self.open}
+            {'displayname': 'Open', 'function': self.open, 'multiitem': True}
         ])
 
         self.update_context_menu()
@@ -958,7 +1018,7 @@ class ExternalUrlItem(CanvasItem):
         super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Open', 'function': self.open}
+            {'displayname': 'Open', 'function': self.open, 'multiitem': True}
         ])
         self.update_context_menu()
 
@@ -978,7 +1038,7 @@ class ModuleItem(CanvasItem):
         super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Download Module', 'function': self.download}
+            {'displayname': 'Download Module', 'function': self.download, 'multiitem': True}
         ])
         self.update_context_menu()
 
@@ -1002,7 +1062,13 @@ class ModuleItem(CanvasItem):
             elif mi.type == 'Discussion':
                 disc = self.course().safe_get_item('get_discussion_topic', mi.content_id)
                 if disc:
-                    item = DiscussionItem(object=disc)
+                    if disc.discussion_type == 'threaded':
+                        item = DiscussionItem(object=disc)
+                    elif disc.discussion_type == 'side_comment':
+                        item = AnnouncementItem(object=disc)
+                    else:
+                        # ideally should not get here (if we do, add if clause to dispatch other object type)
+                        item = ModuleItemItem(object=disc)
                     self.append_item_row(item)
             elif mi.type == 'Quiz':
                 quiz = self.course().safe_get_item('get_quiz', mi.content_id)
@@ -1043,15 +1109,21 @@ class ModuleItem(CanvasItem):
         else:
             confirmed = True
 
-        folderpath = Path(loc) / self.name
+        if confirmed:
+            # pathlib will not accept folder names with slashes
+            # pathlib replaces colons with slashes in macOS
+            # macOS does not allow colons in path names
+            # (so there is no way to get pathlib to insert colons)
+            safename = self.name.replace('/', ':')
+            folderpath = Path(loc) / safename
 
-        if folderpath.exists():
-            self.print('Folder {0} already exists at {1}; module not downloaded.'.format(self.name, loc))
-        else:
-            folderpath.mkdir()
-            self.expand()
-            for ch in self.children():
-                ch.download(location=folderpath, confirm=False) # works for both files and folders!
+            if folderpath.exists():
+                self.print('Folder {0} already exists at {1}; module not downloaded.'.format(self.name, loc))
+            else:
+                folderpath.mkdir()
+                self.expand()
+                for ch in self.children():
+                    ch.download(location=folderpath, confirm=False) # works for both files and folders!
 
 class ModuleItemItem(CanvasItem):
     """
@@ -1062,7 +1134,7 @@ class ModuleItemItem(CanvasItem):
         super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Open', 'function': self.open}
+            {'displayname': 'Open', 'function': self.open, 'multiitem': True}
         ])
         self.update_context_menu()
 
@@ -1085,7 +1157,7 @@ class FolderItem(CanvasItem):
         super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Download Folder', 'function': self.download}
+            {'displayname': 'Download Folder', 'function': self.download, 'multiitem': True}
         ])
         self.update_context_menu()
 
@@ -1137,7 +1209,7 @@ class FileItem(CanvasItem):
         super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Download', 'function': self.download}
+            {'displayname': 'Download', 'function': self.download, 'multiitem': True}
         ])
         self.update_context_menu()
 
@@ -1146,11 +1218,17 @@ class FileItem(CanvasItem):
         self.setEnabled(not self.obj.locked_for_user)
 
     # this is a faster version of the CanvasAPI's download method (not sure why...)
-    def save_data(self, filepath):
-        r = self.auth_get(self.obj.url)
-        with open(str(filepath), 'wb') as fileobj:
-            fileobj.write(r.content)
-        self.print('{} downloaded.'.format(filepath.name))
+    def save_data(self, filepath): # STREAM DOWNLOAD
+        auth_header = {"Authorization": "Bearer {}".format(self.obj._requester.access_token)}
+        r = requests.get(self.obj.url, headers=auth_header, stream=True)
+
+        if r.ok:
+            d = DownloadDialog(self.course().gui, filepath=filepath, request=r)
+            d.accepted.connect(lambda: self.print('{} downloaded.'.format(filepath.name)))
+            d.rejected.connect(lambda: self.print('Download of {} aborted.'.format(filepath.name)))
+            d.show()
+        else:
+            self.print('Download of {0} failed (error code {1}: "{2}").'.format(filepath.name, r.status_code, r.reason))
 
     def download(self, **kwargs):
         loc = kwargs.get('location', self.course().downloadfolder)
@@ -1193,7 +1271,8 @@ class PageItem(CanvasItem):
         super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Display HTML', 'function': self.display}
+            {'displayname': 'Display HTML', 'function': self.display, 'multiitem': False},
+            {'displayname': 'Download Page Contents', 'function': self.download, 'multiitem': True}
         ])
         self.update_context_menu()
 
@@ -1212,6 +1291,34 @@ class PageItem(CanvasItem):
         else:
             self.print('No content on page.')
 
+    def download(self, **kwargs):
+        loc = kwargs.get('location', self.course().downloadfolder)
+        confirm = kwargs.get('confirm', True)
+
+        if confirm:
+            confirmed = confirm_dialog('Download contents of {}?'.format(self.name),
+                title='Confirm Download',
+                parent=self.course().gui
+            )
+        else:
+            confirmed = True
+
+        if confirmed:
+            # pathlib will not accept folder names with slashes
+            # pathlib replaces colons with slashes in macOS
+            # macOS does not allow colons in path names
+            # (so there is no way to get pathlib to insert colons)
+            safename = self.name.replace('/', ':')
+            folderpath = Path(loc) / safename
+
+            if folderpath.exists():
+                self.print('Folder {0} already exists at {1}; module not downloaded.'.format(self.name, loc))
+            else:
+                folderpath.mkdir()
+                self.expand()
+                for ch in self.children():
+                    ch.download(location=folderpath, confirm=False) # works for both files and folders!
+
 class QuizItem(CanvasItem):
     """
     class for tree elements with corresponding canvasapi "quiz" objects
@@ -1220,7 +1327,7 @@ class QuizItem(CanvasItem):
         super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Open', 'function': self.open}
+            {'displayname': 'Open', 'function': self.open, 'multiitem': True}
         ])
         self.update_context_menu()
 
@@ -1243,7 +1350,7 @@ class DiscussionItem(CanvasItem):
         assert self.obj.discussion_type == 'threaded'
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Display HTML', 'function': self.display}
+            {'displayname': 'Display HTML', 'function': self.display, 'multiitem': False}
         ])
         self.update_context_menu()
 
@@ -1283,17 +1390,17 @@ class AnnouncementItem(CanvasItem):
         self.CONTEXT_MENU_ACTIONS = []
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Expand Embedded Links', 'function': self.expand}
+            {'displayname': 'Expand Embedded Links', 'function': self.expand, 'multiitem': True}
         ])
 
         if self.is_read:
             self.CONTEXT_MENU_ACTIONS.extend([
-                {'displayname': 'Mark as Unread', 'function': self.mark_unread}
+                {'displayname': 'Mark as Unread', 'function': self.mark_unread, 'multiitem': True}
             ])
             self.setIcon(QIcon(ResourceFile('icons/announcement.png')))
         else:
             self.CONTEXT_MENU_ACTIONS.extend([
-                {'displayname': 'Mark as Read', 'function': self.mark_read}
+                {'displayname': 'Mark as Read', 'function': self.mark_read, 'multiitem': True}
             ])
             self.setIcon(QIcon(ResourceFile('icons/announcement_unread_blue.png')))
 
@@ -1331,7 +1438,7 @@ class AssignmentItem(CanvasItem):
         super().__init__(*args, **kwargs)
 
         self.CONTEXT_MENU_ACTIONS.extend([
-            {'displayname': 'Open', 'function': self.open}
+            {'displayname': 'Open', 'function': self.open, 'multiitem': True}
         ])
         self.update_context_menu()
 
